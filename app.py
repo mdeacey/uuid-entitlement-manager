@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
-from utils import generate_uuid, get_balance, update_balance, process_payment, validate_coupon, use_credit, add_credits_manually
+from utils import generate_uuid, get_balance, update_balance, process_payment, validate_coupon, use_credit
 import database
 from config import Config
 from werkzeug.exceptions import BadRequest, InternalServerError
@@ -24,11 +24,13 @@ def index():
         # Check if UUID exists in cookies
         user_uuid = request.cookies.get('user_uuid')
         if not user_uuid:
-            # Generate a UUID and give them 10 initial credits
+            # Generate a UUID and give them initial credits
             user_uuid = generate_uuid(user_agent=user_agent_string)
-            response = make_response(render_template('index.html', user_uuid=user_uuid, credits=10))
+            database.add_user(user_uuid, user_agent_string, Config.FREE_CREDITS)
+            logging.info(f"New user created with UUID: {user_uuid}")
+            
+            response = make_response(render_template('index.html', user_uuid=user_uuid, credits=Config.FREE_CREDITS))
             response.set_cookie('user_uuid', user_uuid)
-
             return response
 
         # Get stored user-agent from the database

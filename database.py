@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+import time
 from config import Config
 
 DB_FILE = Config.DATABASE_FILE
@@ -23,7 +24,6 @@ def init_db():
     finally:
         conn.close()
 
-
 def add_user(user_uuid, user_agent, starting_credits):
     try:
         conn = sqlite3.connect(Config.DATABASE_FILE)
@@ -31,6 +31,7 @@ def add_user(user_uuid, user_agent, starting_credits):
         c.execute('INSERT INTO users (uuid, user_agent, credits, last_awarded) VALUES (?, ?, ?, ?)', 
                   (user_uuid, user_agent, starting_credits, int(time.time())))
         conn.commit()
+        logging.info(f"User {user_uuid} added to database successfully.")
 
         # Verify that the user was inserted
         c.execute('SELECT * FROM users WHERE uuid = ?', (user_uuid,))
@@ -43,7 +44,6 @@ def add_user(user_uuid, user_agent, starting_credits):
         logging.error(f"Database error while adding user: {e}")
     finally:
         conn.close()
-
 
 
 def get_credits(user_uuid):

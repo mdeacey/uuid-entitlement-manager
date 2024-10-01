@@ -10,8 +10,8 @@ FREE_CREDITS_INTERVAL = Config.FREE_CREDITS_INTERVAL
 def generate_uuid(user_agent, starting_credits=10):
     user_uuid = str(uuid.uuid4())
     database.add_user(user_uuid, user_agent, starting_credits=starting_credits)
-    database.commit()  # Ensure changes are saved
     return user_uuid
+
 
 def get_balance(user_uuid):
     try:
