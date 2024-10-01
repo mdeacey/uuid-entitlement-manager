@@ -24,7 +24,10 @@ def parse_env_list(env_var, separator=",", key_value_separator=":"):
 
 # Parse balance packs and coupons from the environment
 BALANCE_PACKS = parse_env_list('BALANCE_PACKS')
+logging.info(f"BALANCE_PACKS: {BALANCE_PACKS}")
+
 COUPONS = parse_env_list('COUPONS')
+logging.info(f"COUPONS: {COUPONS}")
 
 def generate_uuid(user_agent, starting_balance=10):
     """Generates a UUID for a new user and adds them to the database."""
