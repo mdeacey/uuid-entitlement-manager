@@ -29,7 +29,7 @@ def index():
         user_uuid = request.cookies.get('user_uuid')
         if not user_uuid:
             user_uuid = database.generate_uuid(user_agent=user_agent_string)
-            response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS))
+            response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS, coupons=COUPONS))
             response.set_cookie('user_uuid', user_uuid)
             return response
 
@@ -41,7 +41,7 @@ def index():
             return redirect(url_for('index'))
 
         balance = database.get_balance(user_uuid)
-        return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS)
+        return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS, coupons=COUPONS)
     except BadRequest as e:
         logging.warning(f"Bad request: {e}")
         flash(str(e))
@@ -185,7 +185,15 @@ def delete_all_user_records():
     if os.getenv('FLASK_ENV') == 'development':
         try:
             database.delete_all_user_records()
+            logging.info("All user records have been deleted.")
+
+            user_uuid = request.cookies.get('user_uuid')
+            response = make_response(redirect(url_for('index')))
+            if user_uuid:
+                response.set_cookie('user_uuid', '', expires=0)
+
             flash("All user records have been deleted.")
+            return response
         except Exception as e:
             logging.error(f"Error deleting all user records: {e}")
             flash("An error occurred while deleting all user records.")

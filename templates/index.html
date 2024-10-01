@@ -35,6 +35,18 @@
             
             <button type="submit">Buy Balance</button>
         </form>
+
+        <!-- Display Available Coupons -->
+        <h3>Available Coupons</h3>
+        {% if coupons %}
+            <ul>
+            {% for coupon, discount in coupons.items() %}
+                <li><strong>{{ coupon }}:</strong> {{ discount }}% off</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>No coupons available at the moment.</p>
+        {% endif %}
     </section>
 
     <!-- Use Balance -->
