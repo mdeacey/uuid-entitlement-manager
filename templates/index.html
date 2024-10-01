@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Management System</title>
+</head>
+<body>
+    <h1>Credit Management System</h1>
+    <p>Your UUID: <strong>{{ user_uuid }}</strong></p>
+    <p>Credit Balance: <strong>{{ credits }}</strong></p>
+
+    <h2>Buy Credits</h2>
+    <form action="/buy_credits" method="POST">
+        <select name="credit_pack" id="credit_pack">
+            <option value="100">100 Credits - $1.84</option>
+            <option value="500">500 Credits - $7.46</option>
+            <option value="1000">1000 Credits - $11.21</option>
+            <option value="5000">5000 Credits - $37.46</option>
+        </select><br><br>
+        <label for="coupon_code">Coupon Code (optional):</label>
+        <input type="text" name="coupon_code" id="coupon_code"><br><br>
+        <button type="submit">Buy Credits</button>
+    </form>
+
+    <h2>Use a Credit</h2>
+    <form action="/use_credit" method="POST">
+        <button type="submit">Use Credit</button>
+    </form>
+
+    <h2>Access Existing Credits</h2>
+    <form action="/access_existing_credits" method="POST">
+        <input type="text" name="user_uuid" placeholder="Enter your UUID" required>
+        <button type="submit">Access Credits</button>
+    </form>
+
+    {% if config.FLASK_ENV == 'development' %}
+    <h2>Development Tools</h2>
+    <form action="/reset_all_credits" method="POST">
+        <button type="submit" style="background-color: red; color: white;">Reset All Credits</button>
+    </form>
+    {% endif %}
+
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul>
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+</body>
+</html>
