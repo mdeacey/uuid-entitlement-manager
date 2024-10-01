@@ -121,7 +121,7 @@ def reset_balance():
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
                 database.update_balance(user_uuid, -database.get_balance(user_uuid))  # Set balance to zero
-                flash("All your balance has been reset.")
+                flash("Your balance has been reset.")
             else:
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
@@ -132,15 +132,35 @@ def reset_balance():
 
     return redirect(url_for('index'))
 
-@app.route('/reset_all_balance', methods=['POST'])
-def reset_all_balance():
+@app.route('/reset_session', methods=['POST'])
+def reset_session():
+    if Config.FLASK_ENV == 'development':
+        try:
+            user_uuid = request.cookies.get('user_uuid')
+            if user_uuid:
+                response = make_response(redirect(url_for('index')))
+                response.set_cookie('user_uuid', '', expires=0)
+                flash("Your session has been reset.")
+                return response
+            else:
+                flash("User UUID not found. Please refresh the page and try again.")
+        except Exception as e:
+            logging.error(f"Error resetting session for user {user_uuid}: {e}")
+            flash("An error occurred while resetting your session.")
+    else:
+        flash("This action is not allowed in production.")
+
+    return redirect(url_for('index'))
+
+@app.route('/reset_all_balances', methods=['POST'])
+def reset_all_balances():
     if Config.FLASK_ENV == 'development':
         try:
             database.reset_all_balance()
-            flash("All balance has been reset to zero.")
+            flash("All balances have been reset to zero.")
         except Exception as e:
-            logging.error(f"Error resetting all balance: {e}")
-            flash("An error occurred while resetting all balance.")
+            logging.error(f"Error resetting all balances: {e}")
+            flash("An error occurred while resetting all balances.")
     else:
         flash("This action is not allowed in production.")
 

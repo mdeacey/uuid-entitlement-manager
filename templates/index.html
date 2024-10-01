@@ -38,26 +38,22 @@
     <h2>Development Tools for Single User</h2>
 
     <form action="/reset_balance" method="POST">
-        <button type="submit">Reset My Balance</button>
+        <button type="submit">Reset Balance</button>
     </form>
-
-    <form action="/remove_all_credits" method="POST">
-        <button type="submit">Remove All Credits for Me</button>
+    
+    <form action="/reset_session" method="POST">
+        <button type="submit">Reset Session</button>
     </form>
-
+    
     <h2>Development Tools for All Users</h2>
-
-    <form action="/reset_all_balance" method="POST">
-        <button type="submit">Reset Balance for All Users</button>
+    
+    <form action="/reset_all_balances" method="POST">
+        <button type="submit">Reset All Balances</button>
     </form>
-
+    
     <form action="/reset_all_sessions" method="POST">
         <button type="submit">Reset All Sessions</button>
-    </form>
-
-    <form action="/reset_all_users" method="POST">
-        <button type="submit">Reset All Users</button>
-    </form>
+    </form>    
     
     {% endif %}
 
