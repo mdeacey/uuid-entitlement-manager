@@ -4,6 +4,8 @@ from config import Config
 import time
 
 DB_FILE = Config.DATABASE_FILE
+logging.info(f"Using database file: {DB_FILE}")
+logging.info(f"Running in Flask environment: {Config.FLASK_ENV}")
 
 def init_db():
     try:

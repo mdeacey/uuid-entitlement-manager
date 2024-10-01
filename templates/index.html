@@ -34,7 +34,7 @@
         <button type="submit">Access Balance</button>
     </form>
 
-    {% if config.FLASK_ENV == 'development' %}
+    {% if flask_env == 'development' %}
     <h2>Development Tools for Single User</h2>
 
     <form action="/reset_balance" method="POST">

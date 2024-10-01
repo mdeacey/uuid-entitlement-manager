@@ -7,6 +7,8 @@ import logging
 FREE_BALANCE = Config.FREE_BALANCE
 FREE_BALANCE_INTERVAL = Config.FREE_BALANCE_INTERVAL
 
+logging.info(f"Running in Flask environment: {Config.FLASK_ENV}")
+
 def generate_uuid(user_agent, starting_balance=10):
     user_uuid = str(uuid.uuid4())
     database.add_user(user_uuid, user_agent, starting_balance=starting_balance)

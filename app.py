@@ -26,7 +26,7 @@ def index():
         if not user_uuid:
             # Generate a UUID and give them initial balance
             user_uuid = generate_uuid(user_agent=user_agent_string)
-            response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10))
+            response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10, flask_env=os.getenv('FLASK_ENV')))
             response.set_cookie('user_uuid', user_uuid)
             return response
 
@@ -41,7 +41,7 @@ def index():
 
         # Get the current balance, including free balance if applicable
         balance = get_balance(user_uuid)
-        return render_template('index.html', user_uuid=user_uuid, balance=balance)
+        return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'))
     except Exception as e:
         logging.error(f"Error in index: {e}")
         raise InternalServerError("An unexpected error occurred.")

@@ -2,3 +2,4 @@ Flask
 Click
 requests
 user-agents
+python-dotenv
