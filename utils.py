@@ -39,6 +39,15 @@ def get_balance_type():
     logging.info(f"Retrieved balance type: {balance_type}")
     return balance_type
 
+def format_currency(amount):
+    """Formats the given amount based on the currency unit and decimal settings."""
+    currency_unit = os.getenv('CURRENCY_UNIT', '$')
+    decimals = int(os.getenv('CURRENCY_DECIMALS', 2))
+
+    formatted_amount = f"{currency_unit}{amount:.{decimals}f}"
+    logging.info(f"Formatted currency: {formatted_amount}")
+    return formatted_amount
+
 def generate_uuid(user_agent, starting_balance=10):
     """Generates a UUID for a new user and adds them to the database."""
     user_uuid = str(uuid.uuid4())
@@ -67,9 +76,9 @@ def get_balance(user_uuid):
         logging.error(f"Error in get_balance for user {user_uuid}: {e}")
         return 0
 
-def update_balance(user_uuid, balance):
+def update_balance(user_uuid, balance_change):
     """Updates the balance for a user."""
-    updated_balance = database.update_balance(user_uuid, balance)
+    updated_balance = database.update_balance(user_uuid, balance_change)
     if updated_balance is not None:
         logging.info(f"Updated balance for user {user_uuid}: New balance is {updated_balance}.")
     else:
@@ -86,9 +95,12 @@ def process_payment(user_uuid, balance_pack, discount):
         # Apply discount if any
         final_amount = max(0, balance_amount - (balance_amount * discount / 100))
 
+        # Format the amount for display
+        formatted_amount = format_currency(final_amount)
+
         # Redirect URL for payment gateway
-        payment_url = os.getenv('PAYMENT_URL').format(user_uuid=user_uuid, balance=final_amount)
-        logging.info(f"Redirecting user {user_uuid} to payment URL: {payment_url}")
+        payment_url = os.getenv('PAYMENT_URL').format(user_uuid=user_uuid, balance=formatted_amount)
+        logging.info(f"Redirecting user {user_uuid} to payment URL: {payment_url} for {formatted_amount}")
         return payment_url
     except Exception as e:
         logging.error(f"Error in process_payment for user {user_uuid}: {e}")

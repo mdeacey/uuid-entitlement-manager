@@ -43,8 +43,7 @@ def add_user_record(user_uuid, user_agent, starting_balance):
             c = conn.cursor()
             c.execute('INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)', 
                       (user_uuid, user_agent, starting_balance, int(time.time())))
-            # Consolidated log message for user creation
-            logging.info(f"User {user_uuid} added with User-Agent='{user_agent}' and balance={starting_balance}.")
+            logging.info(f"User {user_uuid} added successfully. User-Agent='{user_agent}', Initial balance={starting_balance}.")
     except sqlite3.Error as e:
         logging.error(f"Database error while adding user {user_uuid}: {e}")
 

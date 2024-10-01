@@ -23,7 +23,7 @@
             <select name="balance_pack" id="balance_pack" required>
             {% if balance_packs %}
                 {% for pack, price in balance_packs.items() %}
-                <option value="{{ pack }}">{{ pack }} {{ balance_type }} - {{ price }} Currency Unit</option>
+                <option value="{{ pack }}">{{ pack }} {{ balance_type }} - {{ format_currency(price) }}</option>
                 {% endfor %}
             {% else %}
                 <option disabled>No {{ balance_type }} packs available</option>
@@ -60,7 +60,7 @@
         <h2>Access Your {{ balance_type }}</h2>
         <form action="/access_existing_balance" method="POST">
             <input type="text" name="user_uuid" placeholder="Enter your UUID" required>
-            <button type="submit">Add {{ balance_type }}s</button>
+            <button type="submit">Access {{ balance_type }}</button>
         </form>
     </section>
 

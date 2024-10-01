@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import logging
 import os
 import database
-from utils import parse_env_list, process_payment, validate_coupon, get_balance_type
+from utils import parse_env_list, process_payment, validate_coupon, get_balance_type, format_currency
 from werkzeug.exceptions import BadRequest, InternalServerError
 
 load_dotenv()
@@ -41,7 +41,8 @@ def index():
                 flask_env=os.getenv('FLASK_ENV'),
                 balance_packs=BALANCE_PACKS,
                 coupons=COUPONS,
-                balance_type=balance_type
+                balance_type=balance_type,
+                format_currency=format_currency  # Pass the function to the template
             ))
             response.set_cookie('user_uuid', user_uuid)
 
@@ -67,7 +68,8 @@ def index():
             flask_env=os.getenv('FLASK_ENV'),
             balance_packs=BALANCE_PACKS,
             coupons=COUPONS,
-            balance_type=balance_type
+            balance_type=balance_type,
+            format_currency=format_currency  # Pass the function to the template
         )
     except BadRequest as e:
         logging.warning(f"Bad request: {e}")
