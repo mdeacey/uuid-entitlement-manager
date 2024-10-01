@@ -9,6 +9,7 @@ load_dotenv()
 
 DB_FILE = 'uuid_balance.db'
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+
 logging.info(f"Using database file: {DB_FILE}")
 logging.info(f"Running in Flask environment: {os.getenv('FLASK_ENV')}")
 
@@ -42,9 +43,10 @@ def add_user_record(user_uuid, user_agent, starting_balance):
             c = conn.cursor()
             c.execute('INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)', 
                       (user_uuid, user_agent, starting_balance, int(time.time())))
-            logging.info(f"User {user_uuid} added successfully with initial balance {starting_balance}.")
+            # Consolidated log message for user creation
+            logging.info(f"User {user_uuid} added with User-Agent='{user_agent}' and balance={starting_balance}.")
     except sqlite3.Error as e:
-        logging.error(f"Database error while adding user: {e}")
+        logging.error(f"Database error while adding user {user_uuid}: {e}")
 
 def get_balance(user_uuid):
     if not user_uuid:
@@ -76,7 +78,8 @@ def update_balance(user_uuid, balance_change):
             conn.commit()
             c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
             updated_balance = c.fetchone()
-            logging.info(f"Balance updated for user {user_uuid}. New balance: {updated_balance[0]}")
+            if updated_balance:
+                logging.info(f"Balance for user {user_uuid} updated successfully. New balance: {updated_balance[0]}")
             return updated_balance[0] if updated_balance else None
     except sqlite3.Error as e:
         logging.error(f"Database error while updating balance for user {user_uuid}: {e}")
@@ -108,6 +111,8 @@ def get_user_agent(user_uuid):
             c = conn.cursor()
             c.execute('SELECT user_agent FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
+            if result:
+                logging.info(f"User-Agent for user {user_uuid} retrieved successfully.")
             return result[0] if result else None
     except sqlite3.Error as e:
         logging.error(f"Database error while retrieving user agent for user {user_uuid}: {e}")
@@ -121,7 +126,10 @@ def update_user_agent(user_uuid, user_agent):
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute('UPDATE users SET user_agent = ? WHERE uuid = ?', (user_agent, user_uuid))
-            logging.info(f"User agent for user {user_uuid} updated successfully.")
+            if c.rowcount > 0:
+                logging.info(f"User agent for user {user_uuid} updated successfully. New user-agent: '{user_agent}'")
+            else:
+                logging.warning(f"User agent update failed for user {user_uuid}. No matching record found.")
     except sqlite3.Error as e:
         logging.error(f"Database error while updating user agent for user {user_uuid}: {e}")
 
@@ -134,6 +142,8 @@ def get_last_awarded(user_uuid):
             c = conn.cursor()
             c.execute('SELECT last_awarded FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
+            if result:
+                logging.info(f"Last awarded timestamp for user {user_uuid} retrieved successfully.")
             return result[0] if result else 0
     except sqlite3.Error as e:
         logging.error(f"Database error while retrieving last awarded timestamp for user {user_uuid}: {e}")
@@ -147,7 +157,10 @@ def update_last_awarded(user_uuid, last_awarded):
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute('UPDATE users SET last_awarded = ? WHERE uuid = ?', (last_awarded, user_uuid))
-            logging.info(f"Last awarded timestamp for user {user_uuid} updated successfully.")
+            if c.rowcount > 0:
+                logging.info(f"Last awarded timestamp for user {user_uuid} updated successfully.")
+            else:
+                logging.warning(f"Last awarded timestamp update failed for user {user_uuid}. No matching record found.")
     except sqlite3.Error as e:
         logging.error(f"Database error while updating last awarded timestamp for user {user_uuid}: {e}")
 
@@ -160,6 +173,10 @@ def check_uuid_exists(user_uuid):
             c = conn.cursor()
             c.execute('SELECT 1 FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
+            if result:
+                logging.info(f"UUID {user_uuid} exists in the database.")
+            else:
+                logging.warning(f"UUID {user_uuid} does not exist in the database.")
             return bool(result)
     except sqlite3.Error as e:
         logging.error(f"Database error while checking if user {user_uuid} exists: {e}")

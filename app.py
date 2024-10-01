@@ -1,6 +1,5 @@
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
 from dotenv import load_dotenv
-from user_agents import parse
 import logging
 import os
 import database
@@ -14,8 +13,14 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Parse balance packs and coupons only once during initialization
 BALANCE_PACKS = parse_env_list('BALANCE_PACKS')
 COUPONS = parse_env_list('COUPONS')
+balance_type = get_balance_type()  # Retrieve balance type once to avoid repetitive logging
+
+logging.info(f"BALANCE_PACKS parsed from environment: {BALANCE_PACKS}")
+logging.info(f"COUPONS parsed from environment: {COUPONS}")
+logging.info(f"Balance type set to: {balance_type}")
 
 @app.route('/')
 def index():
@@ -24,12 +29,10 @@ def index():
         if not user_agent_string:
             raise BadRequest("User-Agent is missing.")
 
-        logging.info(f"User-Agent header: {user_agent_string}")
-        user_agent = parse(user_agent_string)
-
         user_uuid = request.cookies.get('user_uuid')
+
         if not user_uuid:
-            # If no UUID, create a new user and set the cookie
+            # Create a new user if UUID is not present
             user_uuid = database.generate_uuid(user_agent=user_agent_string)
             response = make_response(render_template(
                 'index.html',
@@ -38,20 +41,25 @@ def index():
                 flask_env=os.getenv('FLASK_ENV'),
                 balance_packs=BALANCE_PACKS,
                 coupons=COUPONS,
-                balance_type=get_balance_type()
+                balance_type=balance_type
             ))
             response.set_cookie('user_uuid', user_uuid)
+
+            # Log new user creation in a single line
+            logging.info(f"New user created: UUID={user_uuid}, User-Agent='{user_agent_string}', Initial balance=10 {balance_type}")
+            flash(f"Welcome! Your new user ID is {user_uuid}.")
             return response
 
-        # If UUID exists, verify if user agent has changed
+        # Verify if user agent has changed
         stored_user_agent = database.get_user_agent(user_uuid)
-        if stored_user_agent != user_agent_string:
-            # If user agent has changed, update the stored user agent
-            logging.info(f"User agent change detected for user {user_uuid}. Updating record.")
-            database.update_user_agent(user_uuid, user_agent_string)
+        if stored_user_agent is None or stored_user_agent.strip() != user_agent_string.strip():
+            logging.info(f"User agent change detected for user {user_uuid}. Updating User-Agent to: '{user_agent_string}'")
+            database.update_user_agent(user_uuid, user_agent_string.strip())
             flash("Browser or device change detected. User agent has been updated.")
 
         balance = database.get_balance(user_uuid)
+        logging.info(f"User {user_uuid} accessed. Current balance: {balance} {balance_type}.")
+        
         return render_template(
             'index.html',
             user_uuid=user_uuid,
@@ -59,7 +67,7 @@ def index():
             flask_env=os.getenv('FLASK_ENV'),
             balance_packs=BALANCE_PACKS,
             coupons=COUPONS,
-            balance_type=get_balance_type()
+            balance_type=balance_type
         )
     except BadRequest as e:
         logging.warning(f"Bad request: {e}")
@@ -68,7 +76,7 @@ def index():
     except Exception as e:
         logging.error(f"Error in index: {e}")
         raise InternalServerError("An unexpected error occurred.")
-
+    
 @app.route('/buy_balance', methods=['POST'])
 def buy_balance():
     try:
@@ -93,12 +101,15 @@ def buy_balance():
             balance_to_add = int(balance_pack)
             updated_balance = database.update_balance(user_uuid, balance_to_add)
             if updated_balance is not None:
+                logging.info(f"{balance_to_add} {get_balance_type()} added to user {user_uuid}. New balance: {updated_balance}.")
                 flash(f"{balance_to_add} {get_balance_type()} has been added successfully. Current {get_balance_type()}: {updated_balance}.")
             else:
+                logging.error(f"Failed to update {get_balance_type()} for user {user_uuid}.")
                 flash(f"Failed to update {get_balance_type()}. Please try again.")
             return redirect(url_for('index'))
 
         payment_url = process_payment(user_uuid, balance_pack, discount)
+        logging.info(f"Redirecting user {user_uuid} to payment URL.")
         return redirect(payment_url)
     except BadRequest as e:
         logging.warning(f"Bad request: {e}")
@@ -114,8 +125,10 @@ def use_balance():
         user_uuid = request.cookies.get('user_uuid')
         success = database.use_balance(user_uuid)
         if success:
+            logging.info(f"{get_balance_type()} used successfully for user {user_uuid}.")
             flash(f'{get_balance_type()} used successfully!')
         else:
+            logging.warning(f"Insufficient {get_balance_type()} for user {user_uuid}.")
             flash(f'Insufficient {get_balance_type()}. Please buy more or wait for free {get_balance_type()}.')
         return redirect(url_for('index'))
     except Exception as e:
@@ -131,11 +144,13 @@ def access_existing_balance():
 
         if database.check_uuid_exists(user_uuid):
             balance = database.get_balance(user_uuid)
+            logging.info(f"Existing user {user_uuid} accessed. Current balance: {balance} {get_balance_type()}.")
             response = make_response(redirect(url_for('index')))
             response.set_cookie('user_uuid', user_uuid)
             flash(f'Current {get_balance_type()}: {balance}')
             return response
         else:
+            logging.warning(f"Invalid UUID {user_uuid} attempted to access.")
             flash('Invalid UUID. Please try again.')
             return redirect(url_for('index'))
     except BadRequest as e:
@@ -153,8 +168,10 @@ def clear_balance():
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
                 database.update_balance(user_uuid, -database.get_balance(user_uuid))
+                logging.info(f"Balance for user {user_uuid} cleared to zero.")
                 flash(f"Your {get_balance_type()} has been cleared.")
             else:
+                logging.warning("User UUID not found for balance clearing.")
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
             logging.error(f"Error clearing balance for user {user_uuid}: {e}")
@@ -171,11 +188,13 @@ def delete_user_record():
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
                 database.delete_user_record(user_uuid)
+                logging.info(f"User record for UUID {user_uuid} deleted successfully.")
                 response = make_response(redirect(url_for('index')))
                 response.set_cookie('user_uuid', '', expires=0)
                 flash("Your user record has been deleted.")
                 return response
             else:
+                logging.warning("User UUID not found for record deletion.")
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
             logging.error(f"Error deleting user record for user {user_uuid}: {e}")
@@ -190,6 +209,7 @@ def clear_all_balances():
     if os.getenv('FLASK_ENV') == 'development':
         try:
             database.clear_all_balances()
+            logging.info("All user balances cleared to zero.")
             flash(f"All user {get_balance_type()}s have been cleared to zero.")
         except Exception as e:
             logging.error(f"Error clearing all balances: {e}")
@@ -204,7 +224,7 @@ def delete_all_user_records():
     if os.getenv('FLASK_ENV') == 'development':
         try:
             database.delete_all_user_records()
-            logging.info("All user records have been deleted.")
+            logging.info("All user records deleted successfully.")
 
             user_uuid = request.cookies.get('user_uuid')
             response = make_response(redirect(url_for('index')))
