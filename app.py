@@ -18,6 +18,7 @@ def index():
     try:
         # Extract user-agent from the request
         user_agent_string = request.headers.get('User-Agent')
+        logging.info(f"User-Agent header: {user_agent_string}")
         user_agent = parse(user_agent_string)
 
         # Check if UUID exists in cookies
@@ -32,6 +33,7 @@ def index():
 
         # Get stored user-agent from the database
         stored_user_agent = database.get_user_agent(user_uuid)
+        logging.info(f"Retrieved stored user-agent for user {user_uuid}: {stored_user_agent}")
 
         # Check if the user-agent matches the stored one to prevent credit abuse
         if stored_user_agent and stored_user_agent != user_agent_string:
@@ -44,6 +46,7 @@ def index():
     except Exception as e:
         logging.error(f"Error in index: {e}")
         raise InternalServerError("An unexpected error occurred.")
+
 
 @app.route('/buy_credits', methods=['POST'])
 def buy_credits():
