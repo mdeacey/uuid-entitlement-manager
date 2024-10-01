@@ -3,47 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balance Management System</title>
+    <title>{{ balance_type }} Management System</title>
 </head>
 <body>
-    <h1>Balance Management System</h1>
+    <h1>{{ balance_type }} Management System</h1>
 
     <!-- User Information -->
     <section>
         <h2>Your Account</h2>
         <p><strong>UUID:</strong> {{ user_uuid }}</p>
-        <p><strong>Current Balance:</strong> {{ balance }}</p>
+        <p><strong>Current {{ balance_type }}:</strong> {{ balance }}</p>
     </section>
 
     <!-- Buy Balance -->
     <section>
-        <h2>Buy Balance</h2>
+        <h2>Buy {{ balance_type }}</h2>
         <form action="/buy_balance" method="POST">
-            <label for="balance_pack">Select Balance Pack:</label>
+            <label for="balance_pack">Select {{ balance_type }} Pack:</label>
             <select name="balance_pack" id="balance_pack" required>
             {% if balance_packs %}
                 {% for pack, price in balance_packs.items() %}
-                <option value="{{ pack }}">{{ pack }} Balance - {{ price }} Currency Unit</option>
+                <option value="{{ pack }}">{{ pack }} {{ balance_type }} - {{ price }} Currency Unit</option>
                 {% endfor %}
             {% else %}
-                <option disabled>No balance packs available</option>
+                <option disabled>No {{ balance_type }} packs available</option>
             {% endif %}
             </select><br><br>
             
             <label for="coupon_code">Coupon Code (optional):</label>
             <input type="text" name="coupon_code" id="coupon_code"><br><br>
             
-            <button type="submit">Buy Balance</button>
+            <button type="submit">Buy {{ balance_type }}</button>
         </form>
 
         <!-- Display Available Coupons -->
         <h3>Available Coupons</h3>
         {% if coupons %}
-            <ul>
             {% for coupon, discount in coupons.items() %}
-                <li><strong>{{ coupon }}:</strong> {{ discount }}% off</li>
+                <strong>{{ coupon }}:</strong> {{ discount }}% off
             {% endfor %}
-            </ul>
         {% else %}
             <p>No coupons available at the moment.</p>
         {% endif %}
@@ -51,18 +49,18 @@
 
     <!-- Use Balance -->
     <section>
-        <h2>Use Balance</h2>
+        <h2>Use {{ balance_type }}</h2>
         <form action="/use_balance" method="POST">
-            <button type="submit">Use 1 Unit of Balance</button>
+            <button type="submit">Use 1 {{ balance_type }}</button>
         </form>
     </section>
 
     <!-- Access Existing Balance -->
     <section>
-        <h2>Access Your Balance</h2>
+        <h2>Access Your {{ balance_type }}</h2>
         <form action="/access_existing_balance" method="POST">
             <input type="text" name="user_uuid" placeholder="Enter your UUID" required>
-            <button type="submit">Access Balance</button>
+            <button type="submit">Add {{ balance_type }}s</button>
         </form>
     </section>
 
@@ -74,7 +72,7 @@
         <!-- Single User Tools -->
         <h3>Single User</h3>
         <form action="/clear_balance" method="POST">
-            <button type="submit">Clear Balance</button>
+            <button type="submit">Clear {{ balance_type }}s</button>
         </form>
         
         <form action="/delete_user_record" method="POST">
@@ -84,7 +82,7 @@
         <!-- All Users Tools -->
         <h3>All Users</h3>
         <form action="/clear_all_balances" method="POST">
-            <button type="submit">Clear All Balances</button>
+            <button type="submit">Clear All {{ balance_type }}s</button>
         </form>
         
         <form action="/delete_all_user_records" method="POST">
