@@ -11,15 +11,19 @@ load_dotenv()
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Helper function to parse environment variable lists
-def parse_env_list(env_var, separator=",", key_value_separator=":"):
-    """Parses an environment variable into a dictionary."""
+def parse_env_list(env_var, separator=";", key_value_separator=":"):
+    """Parses an environment variable into a dictionary with coupons and their applicable packs."""
     items = os.getenv(env_var, "")
     result = {}
     if items:
         for item in items.split(separator):
-            key, value = item.split(key_value_separator)
-            result[key.strip()] = int(value.strip())
+            parts = item.split(key_value_separator)
+            if len(parts) == 3:
+                code, discount, packs = parts
+                result[code.strip()] = {
+                    "discount": int(discount.strip()),
+                    "packs": [pack.strip() for pack in packs.split(",")]
+                }
     return result
 
 # Parse balance packs and coupons from the environment once and store them
@@ -77,10 +81,10 @@ def process_payment(user_uuid, balance_pack, discount):
         if balance_pack not in BALANCE_PACKS:
             raise ValueError("Invalid balance pack selected.")
 
-        balance_amount = BALANCE_PACKS[balance_pack]
+        balance_amount = BALANCE_PACKS[balance_pack]["amount"]
 
         # Apply discount if any
-        final_amount = max(0, balance_amount - discount)
+        final_amount = max(0, balance_amount - (balance_amount * discount / 100))
 
         # Redirect URL for payment gateway
         payment_url = os.getenv('PAYMENT_URL').format(user_uuid=user_uuid, balance=final_amount)
@@ -90,15 +94,20 @@ def process_payment(user_uuid, balance_pack, discount):
         logging.error(f"Error in process_payment for user {user_uuid}: {e}")
         raise
 
-def validate_coupon(coupon_code):
-    """Validates a coupon code and returns its discount value."""
-    discount = COUPONS.get(coupon_code)
-    is_valid = coupon_code in COUPONS
-    if is_valid:
-        logging.info(f"Coupon code '{coupon_code}' is valid for discount of {discount}%.")
+def validate_coupon(coupon_code, balance_pack):
+    """Validates a coupon code and checks if it is applicable to the selected balance pack."""
+    coupon_data = COUPONS.get(coupon_code)
+    if coupon_data:
+        if balance_pack in coupon_data["packs"]:
+            discount = coupon_data["discount"]
+            logging.info(f"Coupon code '{coupon_code}' is valid for a discount of {discount}% on pack '{balance_pack}'.")
+            return True, discount
+        else:
+            logging.warning(f"Coupon code '{coupon_code}' is not applicable to pack '{balance_pack}'.")
+            return False, 0
     else:
         logging.warning(f"Coupon code '{coupon_code}' is invalid.")
-    return is_valid, discount if discount else 0
+        return False, 0
 
 def use_balance(user_uuid):
     """Uses 1 unit of balance from a user's account, if available."""

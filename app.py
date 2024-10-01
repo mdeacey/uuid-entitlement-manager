@@ -88,26 +88,29 @@ def buy_balance():
             raise BadRequest("User UUID is missing.")
 
         if not balance_pack or balance_pack not in BALANCE_PACKS:
-            raise BadRequest(f"Invalid or missing {get_balance_type()} pack selected.")
+            raise BadRequest(f"Invalid or missing {balance_type} pack selected.")
 
         discount = 0
         if coupon_code:
-            is_valid, discount = validate_coupon(coupon_code)
+            is_valid, discount = validate_coupon(coupon_code, balance_pack)
             if not is_valid:
-                flash('Invalid coupon code. Please try again.')
+                flash('Invalid coupon code for the selected pack. Please try again.')
                 return redirect(url_for('index'))
 
+        # Development environment simulation of balance addition
         if os.getenv('FLASK_ENV') == 'development':
             balance_to_add = int(balance_pack)
+            balance_to_add -= balance_to_add * (discount / 100)  # Apply discount
             updated_balance = database.update_balance(user_uuid, balance_to_add)
             if updated_balance is not None:
-                logging.info(f"{balance_to_add} {get_balance_type()} added to user {user_uuid}. New balance: {updated_balance}.")
-                flash(f"{balance_to_add} {get_balance_type()} has been added successfully. Current {get_balance_type()}: {updated_balance}.")
+                logging.info(f"{balance_to_add} {balance_type} added to user {user_uuid}. New balance: {updated_balance}.")
+                flash(f"{balance_to_add} {balance_type} has been added successfully. Current {balance_type}: {updated_balance}.")
             else:
-                logging.error(f"Failed to update {get_balance_type()} for user {user_uuid}.")
-                flash(f"Failed to update {get_balance_type()}. Please try again.")
+                logging.error(f"Failed to update {balance_type} for user {user_uuid}.")
+                flash(f"Failed to update {balance_type}. Please try again.")
             return redirect(url_for('index'))
 
+        # Process payment if not in development environment
         payment_url = process_payment(user_uuid, balance_pack, discount)
         logging.info(f"Redirecting user {user_uuid} to payment URL.")
         return redirect(payment_url)
@@ -125,11 +128,11 @@ def use_balance():
         user_uuid = request.cookies.get('user_uuid')
         success = database.use_balance(user_uuid)
         if success:
-            logging.info(f"{get_balance_type()} used successfully for user {user_uuid}.")
-            flash(f'{get_balance_type()} used successfully!')
+            logging.info(f"{balance_type} used successfully for user {user_uuid}.")
+            flash(f'{balance_type} used successfully!')
         else:
-            logging.warning(f"Insufficient {get_balance_type()} for user {user_uuid}.")
-            flash(f'Insufficient {get_balance_type()}. Please buy more or wait for free {get_balance_type()}.')
+            logging.warning(f"Insufficient {balance_type} for user {user_uuid}.")
+            flash(f'Insufficient {balance_type}. Please buy more or wait for free {balance_type}.')
         return redirect(url_for('index'))
     except Exception as e:
         logging.error(f"Error in use_balance: {e}")
@@ -144,10 +147,10 @@ def access_existing_balance():
 
         if database.check_uuid_exists(user_uuid):
             balance = database.get_balance(user_uuid)
-            logging.info(f"Existing user {user_uuid} accessed. Current balance: {balance} {get_balance_type()}.")
+            logging.info(f"Existing user {user_uuid} accessed. Current balance: {balance} {balance_type}.")
             response = make_response(redirect(url_for('index')))
             response.set_cookie('user_uuid', user_uuid)
-            flash(f'Current {get_balance_type()}: {balance}')
+            flash(f'Current {balance_type}: {balance}')
             return response
         else:
             logging.warning(f"Invalid UUID {user_uuid} attempted to access.")
@@ -169,13 +172,13 @@ def clear_balance():
             if user_uuid:
                 database.update_balance(user_uuid, -database.get_balance(user_uuid))
                 logging.info(f"Balance for user {user_uuid} cleared to zero.")
-                flash(f"Your {get_balance_type()} has been cleared.")
+                flash(f"Your {balance_type} has been cleared.")
             else:
                 logging.warning("User UUID not found for balance clearing.")
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
             logging.error(f"Error clearing balance for user {user_uuid}: {e}")
-            flash(f"An error occurred while clearing your {get_balance_type()}.")
+            flash(f"An error occurred while clearing your {balance_type}.")
     else:
         flash("This action is not allowed in production.")
 
@@ -210,10 +213,10 @@ def clear_all_balances():
         try:
             database.clear_all_balances()
             logging.info("All user balances cleared to zero.")
-            flash(f"All user {get_balance_type()}s have been cleared to zero.")
+            flash(f"All user {balance_type}s have been cleared to zero.")
         except Exception as e:
             logging.error(f"Error clearing all balances: {e}")
-            flash(f"An error occurred while clearing all {get_balance_type()}s.")
+            flash(f"An error occurred while clearing all {balance_type}s.")
     else:
         flash("This action is not allowed in production.")
 

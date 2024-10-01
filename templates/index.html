@@ -39,8 +39,8 @@
         <!-- Display Available Coupons -->
         <h3>Available Coupons</h3>
         {% if coupons %}
-            {% for coupon, discount in coupons.items() %}
-                <strong>{{ coupon }}:</strong> {{ discount }}% off<br>
+            {% for coupon, data in coupons.items() %}
+                <strong>{{ coupon }}:</strong> {{ data.discount }}% off on packs: {{ ", ".join(data.packs) }}<br>
             {% endfor %}
         {% else %}
             <p>No coupons available at the moment.</p>
