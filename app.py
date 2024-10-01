@@ -155,21 +155,51 @@ def reset_balance():
 
     return redirect(url_for('index'))
 
-@app.route('/reset_session', methods=['POST'])
-def reset_session():
+@app.route('/delete_account', methods=['POST'])
+def delete_account():
     if os.getenv('FLASK_ENV') == 'development':
         try:
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
+                # Remove the user from the database
+                database.remove_user(user_uuid)
                 response = make_response(redirect(url_for('index')))
                 response.set_cookie('user_uuid', '', expires=0)
-                flash("Your session has been reset.")
+                flash("Your account has been deleted.")
                 return response
             else:
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
-            logging.error(f"Error resetting session for user {user_uuid}: {e}")
-            flash("An error occurred while resetting your session.")
+            logging.error(f"Error deleting account for user {user_uuid}: {e}")
+            flash("An error occurred while deleting your account.")
+    else:
+        flash("This action is not allowed in production.")
+
+    return redirect(url_for('index'))
+
+@app.route('/reset_all_balances', methods=['POST'])
+def reset_all_balances():
+    if os.getenv('FLASK_ENV') == 'development':
+        try:
+            database.reset_all_balance()
+            flash("All user balances have been reset to zero.")
+        except Exception as e:
+            logging.error(f"Error resetting all balances: {e}")
+            flash("An error occurred while resetting all balances.")
+    else:
+        flash("This action is not allowed in production.")
+
+    return redirect(url_for('index'))
+
+@app.route('/delete_all_accounts', methods=['POST'])
+def delete_all_accounts():
+    if os.getenv('FLASK_ENV') == 'development':
+        try:
+            database.remove_all_users()
+            flash("All user accounts have been deleted.")
+        except Exception as e:
+            logging.error(f"Error deleting all accounts: {e}")
+            flash("An error occurred while deleting all accounts.")
     else:
         flash("This action is not allowed in production.")
 

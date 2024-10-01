@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Get the database file from the environment
-DB_FILE = os.getenv('DATABASE_FILE')
+# Use the updated database file name
+DB_FILE = 'uuid_balance.db'
 logging.info(f"Using database file: {DB_FILE}")
 logging.info(f"Running in Flask environment: {os.getenv('FLASK_ENV')}")
 
@@ -47,7 +47,7 @@ def add_user(user_uuid, user_agent, starting_balance):
         c.execute('INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)', 
                   (user_uuid, user_agent, starting_balance, int(time.time())))
         conn.commit()
-        logging.info(f"User {user_uuid} added successfully.")
+        logging.info(f"User {user_uuid} added successfully with initial balance {starting_balance}.")
     except sqlite3.Error as e:
         logging.error(f"Database error while adding user: {e}")
     finally:
@@ -79,6 +79,7 @@ def update_balance(user_uuid, balance_change):
             conn.rollback()
             return None
         conn.commit()
+        logging.info(f"Balance updated for user {user_uuid} with change {balance_change}.")
         c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
         updated_balance = c.fetchone()
         return updated_balance[0] if updated_balance else None
