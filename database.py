@@ -13,7 +13,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 uuid TEXT PRIMARY KEY, 
                 user_agent TEXT,
-                credits INTEGER,
+                balance INTEGER,
                 last_awarded INTEGER
             )
         ''')
@@ -24,13 +24,12 @@ def init_db():
     finally:
         conn.close()
 
-
-def add_user(user_uuid, user_agent, starting_credits):
+def add_user(user_uuid, user_agent, starting_balance):
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('INSERT INTO users (uuid, user_agent, credits, last_awarded) VALUES (?, ?, ?, ?)', 
-                  (user_uuid, user_agent, starting_credits, int(time.time())))
+        c.execute('INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)', 
+                  (user_uuid, user_agent, starting_balance, int(time.time())))
         conn.commit()
         logging.info(f"User {user_uuid} added successfully.")
     except sqlite3.Error as e:
@@ -38,43 +37,40 @@ def add_user(user_uuid, user_agent, starting_credits):
     finally:
         conn.close()
 
-
-def get_credits(user_uuid):
+def get_balance(user_uuid):
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('SELECT credits FROM users WHERE uuid = ?', (user_uuid,))
+        c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
         result = c.fetchone()
         return result[0] if result else 0
     except sqlite3.Error as e:
-        logging.error(f"Database error while retrieving credits for user {user_uuid}: {e}")
+        logging.error(f"Database error while retrieving balance for user {user_uuid}: {e}")
         return 0
     finally:
         conn.close()
 
-
-def update_credits(user_uuid, credits):
+def update_balance(user_uuid, balance):
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('BEGIN TRANSACTION')
-        c.execute('UPDATE users SET credits = credits + ? WHERE uuid = ?', (credits, user_uuid))
+        c.execute('UPDATE users SET balance = balance + ? WHERE uuid = ?', (balance, user_uuid))
         if c.rowcount == 0:
             logging.error(f"No rows updated. User {user_uuid} may not exist in the database.")
             conn.rollback()
             return None
         conn.commit()
-        c.execute('SELECT credits FROM users WHERE uuid = ?', (user_uuid,))
-        updated_credits = c.fetchone()
-        return updated_credits[0] if updated_credits else None
+        c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
+        updated_balance = c.fetchone()
+        return updated_balance[0] if updated_balance else None
     except sqlite3.Error as e:
-        logging.error(f"Database error while updating credits for user {user_uuid}: {e}")
+        logging.error(f"Database error while updating balance for user {user_uuid}: {e}")
         if conn:
             conn.rollback()
         return None
     finally:
         conn.close()
-
 
 def get_last_awarded(user_uuid):
     try:
@@ -89,7 +85,6 @@ def get_last_awarded(user_uuid):
     finally:
         conn.close()
 
-
 def update_last_awarded(user_uuid, last_awarded):
     try:
         conn = sqlite3.connect(DB_FILE)
@@ -101,7 +96,6 @@ def update_last_awarded(user_uuid, last_awarded):
         logging.error(f"Database error while updating last awarded timestamp for user {user_uuid}: {e}")
     finally:
         conn.close()
-
 
 def check_uuid_exists(user_uuid):
     try:
@@ -116,7 +110,6 @@ def check_uuid_exists(user_uuid):
     finally:
         conn.close()
 
-
 def get_user_agent(user_uuid):
     try:
         conn = sqlite3.connect(DB_FILE)
@@ -130,19 +123,17 @@ def get_user_agent(user_uuid):
     finally:
         conn.close()
 
-
-def reset_all_credits():
+def reset_all_balance():
     try:
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('UPDATE users SET credits = 0')
+        c.execute('UPDATE users SET balance = 0')
         conn.commit()
-        logging.info("All credits have been successfully reset to zero.")
+        logging.info("All balance has been successfully reset to zero.")
     except sqlite3.Error as e:
-        logging.error(f"Database error while resetting all credits: {e}")
+        logging.error(f"Database error while resetting all balance: {e}")
     finally:
         conn.close()
-
 
 def reset_all_users():
     try:
