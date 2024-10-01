@@ -7,68 +7,91 @@
 </head>
 <body>
     <h1>Balance Management System</h1>
-    <p>Your UUID: <strong>{{ user_uuid }}</strong></p>
-    <p>Balance: <strong>{{ balance }}</strong></p>
 
+    <!-- User Information -->
+    <section>
+        <h2>Your Account</h2>
+        <p><strong>UUID:</strong> {{ user_uuid }}</p>
+        <p><strong>Current Balance:</strong> {{ balance }}</p>
+    </section>
+
+    <!-- Buy Balance -->
+    <section>
+        <h2>Buy Balance</h2>
+        <form action="/buy_balance" method="POST">
+            <label for="balance_pack">Select Balance Pack:</label>
+            <select name="balance_pack" id="balance_pack" required>
+            {% if balance_packs %}
+                {% for pack, price in balance_packs.items() %}
+                <option value="{{ pack }}">{{ pack }} Balance - {{ price }} Currency Unit</option>
+                {% endfor %}
+            {% else %}
+                <option disabled>No balance packs available</option>
+            {% endif %}
+            </select><br><br>
+            
+            <label for="coupon_code">Coupon Code (optional):</label>
+            <input type="text" name="coupon_code" id="coupon_code"><br><br>
+            
+            <button type="submit">Buy Balance</button>
+        </form>
+    </section>
+
+    <!-- Use Balance -->
+    <section>
+        <h2>Use Balance</h2>
+        <form action="/use_balance" method="POST">
+            <button type="submit">Use 1 Unit of Balance</button>
+        </form>
+    </section>
+
+    <!-- Access Existing Balance -->
+    <section>
+        <h2>Access Your Balance</h2>
+        <form action="/access_existing_balance" method="POST">
+            <input type="text" name="user_uuid" placeholder="Enter your UUID" required>
+            <button type="submit">Access Balance</button>
+        </form>
+    </section>
+
+    <!-- Development Tools -->
     {% if flask_env == 'development' %}
-    <p><em>Note: You are in development mode. Certain actions are allowed for testing purposes.</em></p>
+    <section>
+        <h2>Development Tools</h2>
+        
+        <!-- Single User Tools -->
+        <h3>Single User</h3>
+        <form action="/clear_balance" method="POST">
+            <button type="submit">Clear Balance</button>
+        </form>
+        
+        <form action="/delete_user_record" method="POST">
+            <button type="submit">Delete User Record</button>
+        </form>
+
+        <!-- All Users Tools -->
+        <h3>All Users</h3>
+        <form action="/clear_all_balances" method="POST">
+            <button type="submit">Clear All Balances</button>
+        </form>
+        
+        <form action="/delete_all_user_records" method="POST">
+            <button type="submit">Delete All User Records</button>
+        </form>
+    </section>
     {% endif %}
 
-    <h2>Buy Balance</h2>
-    <form action="/buy_balance" method="POST">
-        <label for="balance_pack">Select Balance Pack:</label>
-        <select name="balance_pack" id="balance_pack" required>
-        {% if balance_packs %}
-            {% for pack, price in balance_packs.items() %}
-            <option value="{{ pack }}">{{ pack }} Balance - {{ price }} Currency Unit</option>
-            {% endfor %}
-        {% else %}
-            <p>No balance packs available</p>
-        {% endif %}        
-        </select><br><br>
-        <label for="coupon_code">Coupon Code (optional):</label>
-        <input type="text" name="coupon_code" id="coupon_code"><br><br>
-        <button type="submit">Buy Balance</button>
-    </form>    
-
-    <h2>Use Balance</h2>
-    <form action="/use_balance" method="POST">
-        <button type="submit">Use Balance</button>
-    </form>
-
-    <h2>Access Existing Balance</h2>
-    <form action="/access_existing_balance" method="POST">
-        <input type="text" name="user_uuid" placeholder="Enter your UUID" required>
-        <button type="submit">Access Balance</button>
-    </form>
-
-    {% if flask_env == 'development' %}
-    <h2>Development Tools for Single User</h2>
-    <form action="/reset_balance" method="POST">
-        <button type="submit">Reset Balance</button>
-    </form>
-    
-    <form action="/delete_account" method="POST">
-        <button type="submit">Delete Account</button>
-    </form>
-    
-    <h2>Development Tools for All Users</h2>
-    <form action="/reset_all_balances" method="POST">
-        <button type="submit">Reset All Balances</button>
-    </form>
-    
-    <form action="/delete_all_accounts" method="POST">
-        <button type="submit">Delete All Accounts</button>
-    </form>    
-    {% endif %}
-
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages() %}
     {% if messages %}
-    <ul>
-        {% for message in messages %}
-        <li>{{ message }}</li>
-        {% endfor %}
-    </ul>
+    <section>
+        <h2>Messages</h2>
+        <ul>
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </section>
     {% endif %}
     {% endwith %}
 </body>
