@@ -156,7 +156,7 @@ def reset_all_credits():
 def reset_all_sessions():
     if Config.FLASK_ENV == 'development':
         try:
-            database.reset_all_users()
+            database.remove_all_users()
             flash("All sessions have been removed. A new UUID will be assigned on the next visit.")
         except Exception as e:
             logging.error(f"Error resetting all sessions: {e}")
