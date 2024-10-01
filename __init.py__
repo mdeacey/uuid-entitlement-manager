@@ -1,1 +1,21 @@
-# __init__.py
+from .uuid_manager import UUIDManager
+
+# Singleton instance of UUIDManager for ease of use
+uuid_manager = UUIDManager()
+
+# Helper functions to simplify the interface
+def get_or_create_user(user_agent, user_uuid=None, starting_credits=10):
+    """Automatically get or create a user and return their UUID."""
+    return uuid_manager.get_or_create_user(user_agent, user_uuid, starting_credits)
+
+def get_balance(user_uuid):
+    """Get the credit balance of the user."""
+    return uuid_manager.get_balance(user_uuid)
+
+def add_credits(user_uuid, credits):
+    """Add credits to the user's account."""
+    uuid_manager.add_credits(user_uuid, credits)
+
+def use_credit(user_uuid):
+    """Use a credit from the user's account."""
+    return uuid_manager.use_credit(user_uuid)
