@@ -15,6 +15,7 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 BALANCE_PACKS = parse_env_list('BALANCE_PACKS')
+COUPONS = parse_env_list('COUPONS')
 
 @app.route('/')
 def index():
@@ -28,17 +29,19 @@ def index():
 
         user_uuid = request.cookies.get('user_uuid')
         if not user_uuid:
+            # If no UUID, create a new user and set the cookie
             user_uuid = database.generate_uuid(user_agent=user_agent_string)
             response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS, coupons=COUPONS))
             response.set_cookie('user_uuid', user_uuid)
             return response
 
+        # If UUID exists, verify if user agent has changed
         stored_user_agent = database.get_user_agent(user_uuid)
-        logging.info(f"Retrieved stored user-agent for user {user_uuid}: {stored_user_agent}")
-
-        if stored_user_agent and stored_user_agent != user_agent_string:
-            flash("Browser or device change detected. Balance will not be reset.")
-            return redirect(url_for('index'))
+        if stored_user_agent != user_agent_string:
+            # If user agent has changed, update the stored user agent
+            logging.info(f"User agent change detected for user {user_uuid}. Updating record.")
+            database.update_user_agent(user_uuid, user_agent_string)
+            flash("Browser or device change detected. User agent has been updated.")
 
         balance = database.get_balance(user_uuid)
         return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS, coupons=COUPONS)

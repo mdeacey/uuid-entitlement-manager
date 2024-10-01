@@ -113,6 +113,18 @@ def get_user_agent(user_uuid):
         logging.error(f"Database error while retrieving user agent for user {user_uuid}: {e}")
         return None
 
+def update_user_agent(user_uuid, user_agent):
+    if not user_uuid:
+        logging.error("Cannot update user agent: UUID is missing.")
+        return
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('UPDATE users SET user_agent = ? WHERE uuid = ?', (user_agent, user_uuid))
+            logging.info(f"User agent for user {user_uuid} updated successfully.")
+    except sqlite3.Error as e:
+        logging.error(f"Database error while updating user agent for user {user_uuid}: {e}")
+
 def get_last_awarded(user_uuid):
     if not user_uuid:
         logging.error("Cannot retrieve last awarded timestamp: UUID is missing.")
