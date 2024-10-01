@@ -26,10 +26,7 @@ def index():
         if not user_uuid:
             # Generate a UUID and give them initial credits
             user_uuid = generate_uuid(user_agent=user_agent_string)
-            database.add_user(user_uuid, user_agent_string, Config.FREE_CREDITS)
-            logging.info(f"New user created with UUID: {user_uuid}")
-            
-            response = make_response(render_template('index.html', user_uuid=user_uuid, credits=Config.FREE_CREDITS))
+            response = make_response(render_template('index.html', user_uuid=user_uuid, credits=10))
             response.set_cookie('user_uuid', user_uuid)
             return response
 
@@ -102,6 +99,7 @@ def use_credit_route():
         logging.error(f"Error in use_credit_route: {e}")
         raise InternalServerError("An unexpected error occurred.")
 
+
 @app.route('/access_existing_credits', methods=['POST'])
 def access_existing_credits():
     try:
@@ -118,7 +116,27 @@ def access_existing_credits():
     except Exception as e:
         logging.error(f"Error in access_existing_credits: {e}")
         raise InternalServerError("An unexpected error occurred.")
+
+
+@app.route('/reset_credits', methods=['POST'])
+def reset_credits():
+    if Config.FLASK_ENV == 'development':
+        try:
+            user_uuid = request.cookies.get('user_uuid')
+            if user_uuid:
+                database.update_credits(user_uuid, -database.get_credits(user_uuid))  # Set credits to zero
+                flash("All your credits have been reset.")
+            else:
+                flash("User UUID not found. Please refresh the page and try again.")
+        except Exception as e:
+            logging.error(f"Error resetting credits for user {user_uuid}: {e}")
+            flash("An error occurred while resetting your credits.")
+    else:
+        flash("This action is not allowed in production.")
     
+    return redirect(url_for('index'))
+
+
 @app.route('/reset_all_credits', methods=['POST'])
 def reset_all_credits():
     if Config.FLASK_ENV == 'development':
@@ -126,36 +144,40 @@ def reset_all_credits():
             database.reset_all_credits()
             flash("All credits have been reset to zero.")
         except Exception as e:
-            logging.error(f"Error resetting credits: {e}")
-            flash("An error occurred while resetting credits.")
+            logging.error(f"Error resetting all credits: {e}")
+            flash("An error occurred while resetting all credits.")
     else:
         flash("This action is not allowed in production.")
     
     return redirect(url_for('index'))
 
-@app.route('/debug_db', methods=['GET'])
-def debug_db():
-    try:
-        conn = sqlite3.connect(Config.DATABASE_FILE)
-        c = conn.cursor()
-        c.execute('SELECT * FROM users')
-        users = c.fetchall()
-        return f"Current users in database: {users}", 200
-    except sqlite3.Error as e:
-        logging.error(f"Database error while debugging: {e}")
-        return f"Database error: {e}", 500
-    finally:
-        conn.close()
+
+@app.route('/reset_all_sessions', methods=['POST'])
+def reset_all_sessions():
+    if Config.FLASK_ENV == 'development':
+        try:
+            database.reset_all_users()
+            flash("All sessions have been removed. A new UUID will be assigned on the next visit.")
+        except Exception as e:
+            logging.error(f"Error resetting all sessions: {e}")
+            flash("An error occurred while removing all sessions.")
+    else:
+        flash("This action is not allowed in production.")
+    
+    return redirect(url_for('index'))
+
 
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('404.html'), 404
 
+
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('500.html'), 500
 
+
 if __name__ == '__main__':
     # Ensure database is initialized before running the server
     database.init_db()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
