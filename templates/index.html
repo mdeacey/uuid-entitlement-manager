@@ -17,7 +17,7 @@
     <h2>Buy Balance</h2>
     <form action="/buy_balance" method="POST">
         <label for="balance_pack">Select Balance Pack:</label>
-        <select name="balance_pack" id="balance_pack">
+        <select name="balance_pack" id="balance_pack" required>
             {% for pack, price in balance_packs.items() %}
             <option value="{{ pack }}">{{ pack }} Balance - {{ price }} Currency Unit</option>
             {% endfor %}
@@ -25,7 +25,7 @@
         <label for="coupon_code">Coupon Code (optional):</label>
         <input type="text" name="coupon_code" id="coupon_code"><br><br>
         <button type="submit">Buy Balance</button>
-    </form>
+    </form>    
 
     <h2>Use Balance</h2>
     <form action="/use_balance" method="POST">

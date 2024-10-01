@@ -23,6 +23,9 @@ def index():
     try:
         # Extract user-agent from the request
         user_agent_string = request.headers.get('User-Agent')
+        if not user_agent_string:
+            raise BadRequest("User-Agent is missing.")
+
         logging.info(f"User-Agent header: {user_agent_string}")
         user_agent = parse(user_agent_string)
 
@@ -47,6 +50,10 @@ def index():
         # Get the current balance, including free balance if applicable
         balance = database.get_balance(user_uuid)
         return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS)
+    except BadRequest as e:
+        logging.warning(f"Bad request: {e}")
+        flash(str(e))
+        return redirect(url_for('index'))
     except Exception as e:
         logging.error(f"Error in index: {e}")
         raise InternalServerError("An unexpected error occurred.")
@@ -55,11 +62,14 @@ def index():
 def buy_balance():
     try:
         user_uuid = request.cookies.get('user_uuid')
-        balance_pack = request.form['balance_pack']
+        balance_pack = request.form.get('balance_pack')  # Use `get` to handle missing fields gracefully
         coupon_code = request.form.get('coupon_code')
 
-        if balance_pack not in BALANCE_PACKS:
-            raise BadRequest("Invalid balance pack selected.")
+        if not user_uuid:
+            raise BadRequest("User UUID is missing.")
+
+        if not balance_pack or balance_pack not in BALANCE_PACKS:
+            raise BadRequest("Invalid or missing balance pack selected.")
 
         discount = 0
         if coupon_code:
@@ -105,7 +115,10 @@ def use_balance():
 @app.route('/access_existing_balance', methods=['POST'])
 def access_existing_balance():
     try:
-        user_uuid = request.form['user_uuid']
+        user_uuid = request.form.get('user_uuid')
+        if not user_uuid:
+            raise BadRequest("User UUID is required.")
+
         if database.check_uuid_exists(user_uuid):
             balance = database.get_balance(user_uuid)
             response = make_response(redirect(url_for('index')))
@@ -115,9 +128,14 @@ def access_existing_balance():
         else:
             flash('Invalid UUID. Please try again.')
             return redirect(url_for('index'))
+    except BadRequest as e:
+        logging.warning(f"Bad request: {e}")
+        flash(str(e))
+        return redirect(url_for('index'))
     except Exception as e:
         logging.error(f"Error in access_existing_balance: {e}")
         raise InternalServerError("An unexpected error occurred.")
+
 
 @app.route('/reset_balance', methods=['POST'])
 def reset_balance():

@@ -18,8 +18,8 @@ RUN mkdir -p /data && chmod 777 /data
 # Install dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port 5000 for the Flask web server
-EXPOSE 5000
+# Expose port 5001 for the Flask web server
+EXPOSE 5001
 
 # Define the command to run the app
 CMD ["python", "app.py"]
