@@ -1,62 +1,96 @@
+import os
 import uuid
 import time
-import database
-from config import Config
 import logging
+from dotenv import load_dotenv
+import database
 
-FREE_BALANCE = Config.FREE_BALANCE
-FREE_BALANCE_INTERVAL = Config.FREE_BALANCE_INTERVAL
+# Load environment variables
+load_dotenv()
 
-logging.info(f"Running in Flask environment: {Config.FLASK_ENV}")
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Helper function to parse environment variable lists
+def parse_env_list(env_var, separator=",", key_value_separator=":"):
+    """Parses an environment variable into a dictionary."""
+    items = os.getenv(env_var, "")
+    result = {}
+    if items:
+        for item in items.split(separator):
+            key, value = item.split(key_value_separator)
+            result[key.strip()] = int(value.strip())
+    return result
+
+# Parse balance packs and coupons from the environment
+BALANCE_PACKS = parse_env_list('BALANCE_PACKS')
+COUPONS = parse_env_list('COUPONS')
 
 def generate_uuid(user_agent, starting_balance=10):
+    """Generates a UUID for a new user and adds them to the database."""
     user_uuid = str(uuid.uuid4())
-    database.add_user(user_uuid, user_agent, starting_balance=starting_balance)
+    database.add_user(user_uuid, user_agent, starting_balance)
+    logging.info(f"Generated UUID for user: {user_uuid}")
     return user_uuid
 
 def get_balance(user_uuid):
+    """Retrieves the current balance for a user, applying free balance if eligible."""
     try:
-        # Check if the user is eligible for free balance
         last_awarded = database.get_last_awarded(user_uuid)
         current_time = int(time.time())
-        if current_time - last_awarded >= FREE_BALANCE_INTERVAL:
-            database.update_balance(user_uuid, FREE_BALANCE)
+        free_balance_interval = int(os.getenv('FREE_BALANCE_INTERVAL', 86400))
+        free_balance_amount = int(os.getenv('FREE_BALANCE', 10))
+
+        # Award free balance if enough time has passed since the last award
+        if current_time - last_awarded >= free_balance_interval:
+            logging.info(f"Awarding {free_balance_amount} free balance to user {user_uuid}.")
+            database.update_balance(user_uuid, free_balance_amount)
             database.update_last_awarded(user_uuid, current_time)
+
         return database.get_balance(user_uuid)
     except Exception as e:
         logging.error(f"Error in get_balance: {e}")
         return 0
 
 def update_balance(user_uuid, balance):
-    database.update_balance(user_uuid, balance)
+    """Updates the balance for a user."""
+    updated_balance = database.update_balance(user_uuid, balance)
+    if updated_balance is not None:
+        logging.info(f"Updated balance for user {user_uuid}: {updated_balance}")
+    else:
+        logging.error(f"Failed to update balance for user {user_uuid}.")
 
 def process_payment(user_uuid, balance_pack, discount):
+    """Processes payment for the given balance pack, applying any discount."""
     try:
-        balance_amount = {
-            "100": 100,
-            "500": 500,
-            "1000": 1000,
-            "5000": 5000
-        }.get(balance_pack, 0)
+        if balance_pack not in BALANCE_PACKS:
+            raise ValueError("Invalid balance pack selected.")
+
+        balance_amount = BALANCE_PACKS[balance_pack]
 
         # Apply discount if any
         final_amount = max(0, balance_amount - discount)
 
         # Redirect URL for payment gateway
-        return Config.PAYMENT_URL.format(user_uuid=user_uuid, balance=final_amount)
+        payment_url = os.getenv('PAYMENT_URL').format(user_uuid=user_uuid, balance=final_amount)
+        logging.info(f"Redirecting user {user_uuid} to payment URL: {payment_url}")
+        return payment_url
     except Exception as e:
         logging.error(f"Error in process_payment: {e}")
         raise
 
 def validate_coupon(coupon_code):
-    coupons = {
-        "SAVE10": 10,
-        "DISCOUNT20": 20,
-        "HALFOFF": 50
-    }
-    return (coupon_code in coupons, coupons.get(coupon_code, 0))
+    """Validates a coupon code and returns its discount value."""
+    discount = COUPONS.get(coupon_code)
+    is_valid = coupon_code in COUPONS
+    if is_valid:
+        logging.info(f"Coupon code {coupon_code} is valid with a discount of {discount}.")
+    else:
+        logging.warning(f"Coupon code {coupon_code} is invalid.")
+    return is_valid, discount if discount else 0
 
 def use_balance(user_uuid):
+    """Uses 1 unit of balance from a user's account, if available."""
     try:
         balance = database.get_balance(user_uuid)
         if balance > 0:
@@ -75,8 +109,12 @@ def use_balance(user_uuid):
         return False
 
 def add_balance_manually(user_uuid, balance_to_add):
+    """Manually adds a specified balance to a user's account (used for development or testing)."""
     try:
-        database.update_balance(user_uuid, balance_to_add)
-        logging.info(f"Added {balance_to_add} balance to user {user_uuid}")
+        updated_balance = database.update_balance(user_uuid, balance_to_add)
+        if updated_balance is not None:
+            logging.info(f"Manually added {balance_to_add} balance to user {user_uuid}. New balance: {updated_balance}")
+        else:
+            logging.error(f"Failed to add balance to user {user_uuid}.")
     except Exception as e:
         logging.error(f"Error in add_balance_manually: {e}")

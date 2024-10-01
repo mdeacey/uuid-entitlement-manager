@@ -10,13 +10,17 @@
     <p>Your UUID: <strong>{{ user_uuid }}</strong></p>
     <p>Balance: <strong>{{ balance }}</strong></p>
 
+    {% if flask_env == 'development' %}
+    <p><em>Note: You are in development mode. Certain actions are allowed for testing purposes.</em></p>
+    {% endif %}
+
     <h2>Buy Balance</h2>
     <form action="/buy_balance" method="POST">
+        <label for="balance_pack">Select Balance Pack:</label>
         <select name="balance_pack" id="balance_pack">
-            <option value="100">100 Balance - $1.00</option>
-            <option value="500">500 Balance - $5.00</option>
-            <option value="1000">1000 Balance - $10.00</option>
-            <option value="5000">5000 Balance - $50.00</option>
+            {% for pack, price in balance_packs.items() %}
+            <option value="{{ pack }}">{{ pack }} Balance - {{ price }} Currency Unit</option>
+            {% endfor %}
         </select><br><br>
         <label for="coupon_code">Coupon Code (optional):</label>
         <input type="text" name="coupon_code" id="coupon_code"><br><br>
@@ -36,25 +40,22 @@
 
     {% if flask_env == 'development' %}
     <h2>Development Tools for Single User</h2>
-
     <form action="/reset_balance" method="POST">
         <button type="submit">Reset Balance</button>
     </form>
-    
+
     <form action="/reset_session" method="POST">
         <button type="submit">Reset Session</button>
     </form>
-    
+
     <h2>Development Tools for All Users</h2>
-    
     <form action="/reset_all_balances" method="POST">
         <button type="submit">Reset All Balances</button>
     </form>
-    
+
     <form action="/reset_all_sessions" method="POST">
         <button type="submit">Reset All Sessions</button>
-    </form>    
-    
+    </form>
     {% endif %}
 
     {% with messages = get_flashed_messages() %}

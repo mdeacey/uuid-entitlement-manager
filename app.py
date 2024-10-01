@@ -1,17 +1,22 @@
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
-from utils import generate_uuid, get_balance, update_balance, process_payment, validate_coupon, use_balance
-import database
-from config import Config
-from werkzeug.exceptions import BadRequest, InternalServerError
+from dotenv import load_dotenv
+from user_agents import parse
 import logging
 import os
-from user_agents import parse
+import database
+from utils import parse_env_list, process_payment, validate_coupon
+from werkzeug.exceptions import BadRequest, InternalServerError
+
+load_dotenv()  # Load environment variables from .env file
 
 app = Flask(__name__)
-app.secret_key = Config.SECRET_KEY
+app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Parse balance packs and coupons from environment variables
+BALANCE_PACKS = parse_env_list('BALANCE_PACKS')
 
 @app.route('/')
 def index():
@@ -25,8 +30,8 @@ def index():
         user_uuid = request.cookies.get('user_uuid')
         if not user_uuid:
             # Generate a UUID and give them initial balance
-            user_uuid = generate_uuid(user_agent=user_agent_string)
-            response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10, flask_env=os.getenv('FLASK_ENV')))
+            user_uuid = database.generate_uuid(user_agent=user_agent_string)
+            response = make_response(render_template('index.html', user_uuid=user_uuid, balance=10, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS))
             response.set_cookie('user_uuid', user_uuid)
             return response
 
@@ -40,8 +45,8 @@ def index():
             return redirect(url_for('index'))
 
         # Get the current balance, including free balance if applicable
-        balance = get_balance(user_uuid)
-        return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'))
+        balance = database.get_balance(user_uuid)
+        return render_template('index.html', user_uuid=user_uuid, balance=balance, flask_env=os.getenv('FLASK_ENV'), balance_packs=BALANCE_PACKS)
     except Exception as e:
         logging.error(f"Error in index: {e}")
         raise InternalServerError("An unexpected error occurred.")
@@ -53,8 +58,15 @@ def buy_balance():
         balance_pack = request.form['balance_pack']
         coupon_code = request.form.get('coupon_code')
 
-        if balance_pack not in ["100", "500", "1000", "5000"]:
+        if balance_pack not in BALANCE_PACKS:
             raise BadRequest("Invalid balance pack selected.")
+
+        discount = 0
+        if coupon_code:
+            is_valid, discount = validate_coupon(coupon_code)
+            if not is_valid:
+                flash('Invalid coupon code. Please try again.')
+                return redirect(url_for('index'))
 
         if os.getenv('FLASK_ENV') == 'development':
             # In development, allow manual balance addition without payment
@@ -65,13 +77,6 @@ def buy_balance():
             else:
                 flash("Failed to update balance. Please try again.")
             return redirect(url_for('index'))
-
-        discount = 0
-        if coupon_code:
-            is_valid, discount = validate_coupon(coupon_code)
-            if not is_valid:
-                flash('Invalid coupon code. Please try again.')
-                return redirect(url_for('index'))
 
         payment_url = process_payment(user_uuid, balance_pack, discount)
         return redirect(payment_url)
@@ -84,17 +89,17 @@ def buy_balance():
         raise InternalServerError("An unexpected error occurred.")
 
 @app.route('/use_balance', methods=['POST'])
-def use_balance_route():
+def use_balance():
     try:
         user_uuid = request.cookies.get('user_uuid')
-        success = use_balance(user_uuid)
+        success = database.use_balance(user_uuid)
         if success:
             flash('Balance used successfully!')
         else:
             flash('Insufficient balance. Please buy more or wait for free balance.')
         return redirect(url_for('index'))
     except Exception as e:
-        logging.error(f"Error in use_balance_route: {e}")
+        logging.error(f"Error in use_balance: {e}")
         raise InternalServerError("An unexpected error occurred.")
 
 @app.route('/access_existing_balance', methods=['POST'])
@@ -102,7 +107,7 @@ def access_existing_balance():
     try:
         user_uuid = request.form['user_uuid']
         if database.check_uuid_exists(user_uuid):
-            balance = get_balance(user_uuid)
+            balance = database.get_balance(user_uuid)
             response = make_response(redirect(url_for('index')))
             response.set_cookie('user_uuid', user_uuid)
             flash(f'Balance: {balance}')
@@ -116,7 +121,7 @@ def access_existing_balance():
 
 @app.route('/reset_balance', methods=['POST'])
 def reset_balance():
-    if Config.FLASK_ENV == 'development':
+    if os.getenv('FLASK_ENV') == 'development':
         try:
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
@@ -134,7 +139,7 @@ def reset_balance():
 
 @app.route('/reset_session', methods=['POST'])
 def reset_session():
-    if Config.FLASK_ENV == 'development':
+    if os.getenv('FLASK_ENV') == 'development':
         try:
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
@@ -147,34 +152,6 @@ def reset_session():
         except Exception as e:
             logging.error(f"Error resetting session for user {user_uuid}: {e}")
             flash("An error occurred while resetting your session.")
-    else:
-        flash("This action is not allowed in production.")
-
-    return redirect(url_for('index'))
-
-@app.route('/reset_all_balances', methods=['POST'])
-def reset_all_balances():
-    if Config.FLASK_ENV == 'development':
-        try:
-            database.reset_all_balance()
-            flash("All balances have been reset to zero.")
-        except Exception as e:
-            logging.error(f"Error resetting all balances: {e}")
-            flash("An error occurred while resetting all balances.")
-    else:
-        flash("This action is not allowed in production.")
-
-    return redirect(url_for('index'))
-
-@app.route('/reset_all_sessions', methods=['POST'])
-def reset_all_sessions():
-    if Config.FLASK_ENV == 'development':
-        try:
-            database.reset_all_users()
-            flash("All sessions have been removed. A new UUID will be assigned on the next visit.")
-        except Exception as e:
-            logging.error(f"Error resetting all sessions: {e}")
-            flash("An error occurred while removing all sessions.")
     else:
         flash("This action is not allowed in production.")
 
