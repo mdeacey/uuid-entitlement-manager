@@ -8,10 +8,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_FILE = 'uuid_balance.db'
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+STARTING_BALANCE = int(os.getenv('STARTING_BALANCE', 10))  # Retrieve starting balance from environment, default is 10
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 logging.info(f"Using database file: {DB_FILE}")
 logging.info(f"Running in Flask environment: {os.getenv('FLASK_ENV')}")
+logging.info(f"Starting balance set to: {STARTING_BALANCE}")
 
 def init_db():
     try:
@@ -20,7 +23,7 @@ def init_db():
             c.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     uuid TEXT PRIMARY KEY, 
-                    user_agent TEXT,
+                    user_agent_hash TEXT,
                     balance INTEGER,
                     last_awarded INTEGER
                 )
@@ -29,21 +32,21 @@ def init_db():
     except sqlite3.Error as e:
         logging.error(f"Database initialization error: {e}")
 
-def generate_uuid(user_agent, starting_balance=10):
+def generate_uuid(user_agent_hash):
     user_uuid = str(uuid.uuid4())
-    add_user_record(user_uuid, user_agent, starting_balance)
+    add_user_record(user_uuid, user_agent_hash, STARTING_BALANCE)
     return user_uuid
 
-def add_user_record(user_uuid, user_agent, starting_balance):
+def add_user_record(user_uuid, user_agent_hash, starting_balance):
     if not user_uuid:
         logging.error("Cannot add user record: UUID is missing.")
         return
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute('INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)', 
-                      (user_uuid, user_agent, starting_balance, int(time.time())))
-            logging.info(f"User {user_uuid} added successfully. User-Agent='{user_agent}', Initial balance={starting_balance}.")
+            c.execute('INSERT INTO users (uuid, user_agent_hash, balance, last_awarded) VALUES (?, ?, ?, ?)', 
+                      (user_uuid, user_agent_hash, starting_balance, int(time.time())))
+            logging.info(f"User {user_uuid} added successfully. User-Agent hash='{user_agent_hash}', Initial balance={starting_balance}.")
     except sqlite3.Error as e:
         logging.error(f"Database error while adding user {user_uuid}: {e}")
 
@@ -103,34 +106,34 @@ def use_balance(user_uuid):
 
 def get_user_agent(user_uuid):
     if not user_uuid:
-        logging.error("Cannot retrieve user agent: UUID is missing.")
+        logging.error("Cannot retrieve user agent hash: UUID is missing.")
         return None
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute('SELECT user_agent FROM users WHERE uuid = ?', (user_uuid,))
+            c.execute('SELECT user_agent_hash FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
             if result:
-                logging.info(f"User-Agent for user {user_uuid} retrieved successfully.")
+                logging.info(f"User-Agent hash for user {user_uuid} retrieved successfully.")
             return result[0] if result else None
     except sqlite3.Error as e:
-        logging.error(f"Database error while retrieving user agent for user {user_uuid}: {e}")
+        logging.error(f"Database error while retrieving user agent hash for user {user_uuid}: {e}")
         return None
 
-def update_user_agent(user_uuid, user_agent):
+def update_user_agent(user_uuid, user_agent_hash):
     if not user_uuid:
-        logging.error("Cannot update user agent: UUID is missing.")
+        logging.error("Cannot update user agent hash: UUID is missing.")
         return
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
-            c.execute('UPDATE users SET user_agent = ? WHERE uuid = ?', (user_agent, user_uuid))
+            c.execute('UPDATE users SET user_agent_hash = ? WHERE uuid = ?', (user_agent_hash, user_uuid))
             if c.rowcount > 0:
-                logging.info(f"User agent for user {user_uuid} updated successfully. New user-agent: '{user_agent}'")
+                logging.info(f"User agent hash for user {user_uuid} updated successfully. New hash: '{user_agent_hash}'")
             else:
-                logging.warning(f"User agent update failed for user {user_uuid}. No matching record found.")
+                logging.warning(f"User agent hash update failed for user {user_uuid}. No matching record found.")
     except sqlite3.Error as e:
-        logging.error(f"Database error while updating user agent for user {user_uuid}: {e}")
+        logging.error(f"Database error while updating user agent hash for user {user_uuid}: {e}")
 
 def get_last_awarded(user_uuid):
     if not user_uuid:

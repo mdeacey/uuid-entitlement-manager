@@ -2,6 +2,7 @@ import os
 import uuid
 import time
 import logging
+import hashlib
 from dotenv import load_dotenv
 import database
 
@@ -54,6 +55,10 @@ def generate_uuid(user_agent, starting_balance=10):
     database.add_user_record(user_uuid, user_agent, starting_balance)
     logging.info(f"Generated UUID for new user: {user_uuid}")
     return user_uuid
+
+def hash_user_agent(user_agent):
+    """Hashes the user agent using SHA-256."""
+    return hashlib.sha256(user_agent.encode()).hexdigest()
 
 def get_balance(user_uuid):
     """Retrieves the current balance for a user, applying free balance if eligible."""
