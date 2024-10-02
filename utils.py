@@ -1,14 +1,15 @@
 import os
-import logging
 import ast
 from dotenv import load_dotenv
 import database
 import uuid
 import time
-from logger import logger  # Import centralized logger
+from loguru import logger  # Use Loguru's logger
 
 # Load environment variables
 load_dotenv()
+
+# Note: Removed logger.add configuration to avoid duplicate logging
 
 def log_env_variables():
     """
@@ -107,7 +108,7 @@ def format_currency(amount):
         logger.info(f"Formatted currency: {formatted_amount}")
         return formatted_amount
     except Exception as e:
-        logger.error(f"Error formatting currency for amount {amount}: {e}")
+        logger.exception(f"Error formatting currency for amount {amount}: {e}")
         return str(amount)
 
 def generate_uuid(user_agent, starting_balance=10):
@@ -121,7 +122,7 @@ def generate_uuid(user_agent, starting_balance=10):
         logger.info(f"Generated UUID for new user: {user_uuid}, with initial balance: {starting_balance}")
         return user_uuid
     except Exception as e:
-        logger.error(f"Error generating UUID for user agent '{user_agent[:50]}...': {e}")  # Truncate long user agent strings
+        logger.exception(f"Error generating UUID for user agent '{user_agent[:50]}...': {e}")  # Truncate long user agent strings
         return None
 
 def get_balance(user_uuid):
@@ -144,7 +145,7 @@ def get_balance(user_uuid):
         logger.info(f"Retrieved balance for user {user_uuid}: {balance}")
         return balance
     except Exception as e:
-        logger.error(f"Error retrieving balance for user {user_uuid}: {e}")
+        logger.exception(f"Error retrieving balance for user {user_uuid}: {e}")
         return 0
 
 def validate_coupon(coupon_code, balance_pack):
@@ -167,7 +168,7 @@ def validate_coupon(coupon_code, balance_pack):
             logger.warning(f"Coupon '{coupon_code}' is invalid.")
             return False, 0
     except Exception as e:
-        logger.error(f"Error validating coupon '{coupon_code}' for balance pack '{balance_pack}': {e}")
+        logger.exception(f"Error validating coupon '{coupon_code}' for balance pack '{balance_pack}': {e}")
         return False, 0
 
 def process_payment(user_uuid, balance_pack, discount):
@@ -192,7 +193,7 @@ def process_payment(user_uuid, balance_pack, discount):
         logger.info(f"Redirecting user {user_uuid} to payment URL for amount: {formatted_amount}")
         return payment_url
     except Exception as e:
-        logger.error(f"Error processing payment for user {user_uuid} with balance pack '{balance_pack}': {e}")
+        logger.exception(f"Error processing payment for user {user_uuid} with balance pack '{balance_pack}': {e}")
         raise
 
 def add_balance_manually(user_uuid, balance_to_add):
@@ -206,4 +207,4 @@ def add_balance_manually(user_uuid, balance_to_add):
         else:
             logger.error(f"Failed to add balance to user {user_uuid}.")
     except Exception as e:
-        logger.error(f"Error adding balance manually for user {user_uuid}: {e}")
+        logger.exception(f"Error adding balance manually for user {user_uuid}: {e}")
