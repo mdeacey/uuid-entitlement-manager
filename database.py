@@ -6,15 +6,24 @@ import uuid
 import hashlib
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
+# Database file path
 DB_FILE = 'uuid_balance.db'
+
+# Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
+# Log which database file is being used and environment information
 logging.info(f"Using database file: {DB_FILE}")
 logging.info(f"Running in Flask environment: {os.getenv('FLASK_ENV')}")
 
 def init_db():
+    """
+    Initialize the SQLite database.
+    Creates the 'users' table if it does not exist.
+    """
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
@@ -31,16 +40,24 @@ def init_db():
         logging.error(f"Database initialization error: {e}")
 
 def hash_user_agent(user_agent):
-    """Hashes the user agent using SHA256."""
+    """
+    Hashes the user agent using SHA256.
+    """
     return hashlib.sha256(user_agent.encode()).hexdigest()
 
 def generate_uuid(user_agent, starting_balance=10):
+    """
+    Generates a UUID for a new user and adds a new record to the database.
+    """
     hashed_user_agent = hash_user_agent(user_agent)
     user_uuid = str(uuid.uuid4())
     add_user_record(user_uuid, hashed_user_agent, starting_balance)
     return user_uuid
 
 def add_user_record(user_uuid, user_agent, starting_balance):
+    """
+    Adds a new user record to the database.
+    """
     if not user_uuid:
         logging.error("Cannot add user record: UUID is missing.")
         return
@@ -54,6 +71,9 @@ def add_user_record(user_uuid, user_agent, starting_balance):
         logging.error(f"Database error while adding user {user_uuid}: {e}")
 
 def get_balance(user_uuid):
+    """
+    Retrieves the balance of a user by their UUID.
+    """
     if not user_uuid:
         logging.error("Cannot retrieve balance: UUID is missing.")
         return 0
@@ -68,6 +88,9 @@ def get_balance(user_uuid):
         return 0
 
 def update_balance(user_uuid, balance_change):
+    """
+    Updates the balance of a user.
+    """
     if not user_uuid or balance_change == 0:
         logging.warning("Invalid parameters for updating balance.")
         return None
@@ -91,6 +114,9 @@ def update_balance(user_uuid, balance_change):
         return None
 
 def use_balance(user_uuid):
+    """
+    Decreases the balance of a user by 1 if they have enough balance.
+    """
     if not user_uuid:
         logging.error("Cannot use balance: UUID is missing.")
         return False
@@ -108,6 +134,9 @@ def use_balance(user_uuid):
         return False
 
 def get_user_agent(user_uuid):
+    """
+    Retrieves the hashed user agent associated with a user by their UUID.
+    """
     if not user_uuid:
         logging.error("Cannot retrieve user agent: UUID is missing.")
         return None
@@ -124,6 +153,9 @@ def get_user_agent(user_uuid):
         return None
 
 def update_user_agent(user_uuid, user_agent):
+    """
+    Updates the user agent for a given user UUID.
+    """
     hashed_user_agent = hash_user_agent(user_agent)
     if not user_uuid:
         logging.error("Cannot update user agent: UUID is missing.")
@@ -140,6 +172,9 @@ def update_user_agent(user_uuid, user_agent):
         logging.error(f"Database error while updating user agent for user {user_uuid}: {e}")
 
 def get_last_awarded(user_uuid):
+    """
+    Retrieves the last awarded timestamp for a user by their UUID.
+    """
     if not user_uuid:
         logging.error("Cannot retrieve last awarded timestamp: UUID is missing.")
         return 0
@@ -156,6 +191,9 @@ def get_last_awarded(user_uuid):
         return 0
 
 def update_last_awarded(user_uuid, last_awarded):
+    """
+    Updates the last awarded timestamp for a given user UUID.
+    """
     if not user_uuid:
         logging.error("Cannot update last awarded: UUID is missing.")
         return
@@ -171,6 +209,9 @@ def update_last_awarded(user_uuid, last_awarded):
         logging.error(f"Database error while updating last awarded timestamp for user {user_uuid}: {e}")
 
 def check_uuid_exists(user_uuid):
+    """
+    Checks whether a user UUID exists in the database.
+    """
     if not user_uuid:
         logging.error("Cannot check UUID existence: UUID is missing.")
         return False
@@ -189,6 +230,9 @@ def check_uuid_exists(user_uuid):
         return False
 
 def clear_all_balances():
+    """
+    Clears all balances to zero for all users.
+    """
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
@@ -198,6 +242,9 @@ def clear_all_balances():
         logging.error(f"Database error while clearing all balances: {e}")
 
 def delete_user_record(user_uuid):
+    """
+    Deletes a user record from the database by their UUID.
+    """
     if not user_uuid:
         logging.error("Cannot delete user record: UUID is missing.")
         return
@@ -213,6 +260,9 @@ def delete_user_record(user_uuid):
         logging.error(f"Database error while deleting user record {user_uuid}: {e}")
 
 def delete_all_user_records():
+    """
+    Deletes all user records from the database.
+    """
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()

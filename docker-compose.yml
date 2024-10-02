@@ -9,6 +9,8 @@ services:
       - DATABASE_FILE=/data/uuid_balance.db
     volumes:
       - sqlite_data:/data
+    env_file:
+      - .env
 
 volumes:
   sqlite_data:

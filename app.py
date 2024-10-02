@@ -1,56 +1,76 @@
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
+import os
+from utils import parse_purchase_packs, parse_coupons, format_currency, get_balance_type, validate_coupon, process_payment
 from dotenv import load_dotenv
 import logging
-import os
-import database
-from utils import parse_env_list, process_payment, validate_coupon, get_balance_type, format_currency
 from werkzeug.exceptions import BadRequest, InternalServerError
+import database
 
+# Load environment variables
 load_dotenv()
 
+# Set up Flask app and secret key
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
+# Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Parse balance packs and coupons only once during initialization
-BALANCE_PACKS = parse_env_list('BALANCE_PACKS')
-COUPONS = parse_env_list('COUPONS')
-balance_type = get_balance_type()  # Retrieve balance type once to avoid repetitive logging
+# Parse PURCHASE_PACKS and COUPONS from environment variables
+PURCHASE_PACKS = parse_purchase_packs('PURCHASE_PACKS')
+COUPONS = parse_coupons('COUPONS')
+balance_type = get_balance_type()
 
-logging.info(f"BALANCE_PACKS parsed from environment: {BALANCE_PACKS}")
-logging.info(f"COUPONS parsed from environment: {COUPONS}")
-logging.info(f"Balance type set to: {balance_type}")
+# Log the parsed purchase packs and coupons in a human-readable format
+def log_purchase_packs(packs, balance_type):
+    log_str = "\nPURCHASE PACKS:\n"
+    for pack_name, details in packs.items():
+        log_str += f"{pack_name}:\n"
+        log_str += f"  Size ({balance_type}): {details['size']}\n"
+        log_str += f"  Applicable Coupons: {', '.join(details['applicable_coupons'])}\n"
+    logging.info(log_str)
+
+def log_coupons(coupons):
+    log_str = "\nAVAILABLE COUPONS:\n"
+    for coupon_code, details in coupons.items():
+        log_str += f"{coupon_code}:\n"
+        log_str += f"  Discount Percentage: {details['discount']}%\n"
+        log_str += f"  Applicable Packs: {', '.join(details['applicable_packs'])}\n"
+    logging.info(log_str)
+
+log_purchase_packs(PURCHASE_PACKS, balance_type)
+log_coupons(COUPONS)
 
 @app.route('/')
 def index():
     try:
+        user_uuid = request.cookies.get('user_uuid')
+        balance = 10  # Default starting balance, for demonstration purposes
+
+        # Hash the user agent
         user_agent_string = request.headers.get('User-Agent')
         if not user_agent_string:
             raise BadRequest("User-Agent is missing.")
-
-        # Hash the user agent
+        
         hashed_user_agent = database.hash_user_agent(user_agent_string)
 
-        user_uuid = request.cookies.get('user_uuid')
-
+        # If there's no user UUID, create a new user
         if not user_uuid:
-            # Create a new user if UUID is not present
             user_uuid = database.generate_uuid(user_agent=user_agent_string)
             response = make_response(render_template(
                 'index.html',
                 user_uuid=user_uuid,
-                balance=10,
+                balance=balance,
                 flask_env=os.getenv('FLASK_ENV'),
-                balance_packs=BALANCE_PACKS,
+                purchase_packs=PURCHASE_PACKS,
                 coupons=COUPONS,
                 balance_type=balance_type,
                 hashed_user_agent=hashed_user_agent,
-                format_currency=format_currency  # Pass the function to the template
+                format_currency=format_currency
             ))
             response.set_cookie('user_uuid', user_uuid)
 
-            # Log new user creation in a single line
+            # Log new user creation
             logging.info(f"New user created: UUID={user_uuid}, User-Agent='{user_agent_string}', Initial balance=10 {balance_type}")
             flash(f"Welcome! Your new user ID is {user_uuid}.")
             return response
@@ -62,19 +82,20 @@ def index():
             database.update_user_agent(user_uuid, user_agent_string.strip())
             flash("Browser or device change detected. User agent has been updated.")
 
+        # Retrieve current balance from the database
         balance = database.get_balance(user_uuid)
         logging.info(f"User {user_uuid} accessed. Current balance: {balance} {balance_type}.")
-        
+
         return render_template(
             'index.html',
             user_uuid=user_uuid,
             balance=balance,
             flask_env=os.getenv('FLASK_ENV'),
-            balance_packs=BALANCE_PACKS,
+            purchase_packs=PURCHASE_PACKS,
             coupons=COUPONS,
             balance_type=balance_type,
             hashed_user_agent=hashed_user_agent,
-            format_currency=format_currency  # Pass the function to the template
+            format_currency=format_currency
         )
     except BadRequest as e:
         logging.warning(f"Bad request: {e}")
@@ -83,7 +104,7 @@ def index():
     except Exception as e:
         logging.error(f"Error in index: {e}")
         raise InternalServerError("An unexpected error occurred.")
-    
+
 @app.route('/buy_balance', methods=['POST'])
 def buy_balance():
     try:
@@ -94,7 +115,7 @@ def buy_balance():
         if not user_uuid:
             raise BadRequest("User UUID is missing.")
 
-        if not balance_pack or balance_pack not in BALANCE_PACKS:
+        if not balance_pack or balance_pack not in PURCHASE_PACKS:
             raise BadRequest(f"Invalid or missing {balance_type} pack selected.")
 
         discount = 0
@@ -104,10 +125,12 @@ def buy_balance():
                 flash('Invalid coupon code for the selected pack. Please try again.')
                 return redirect(url_for('index'))
 
-        # Development environment simulation of balance addition
+        # Calculate final balance to add after discount
+        balance_to_add = PURCHASE_PACKS[balance_pack]["size"]
+        balance_to_add -= int(balance_to_add * (discount / 100))
+
+        # Update the balance in development mode
         if os.getenv('FLASK_ENV') == 'development':
-            balance_to_add = int(balance_pack)
-            balance_to_add -= balance_to_add * (discount / 100)  # Apply discount
             updated_balance = database.update_balance(user_uuid, balance_to_add)
             if updated_balance is not None:
                 logging.info(f"{balance_to_add} {balance_type} added to user {user_uuid}. New balance: {updated_balance}.")
@@ -117,7 +140,7 @@ def buy_balance():
                 flash(f"Failed to update {balance_type}. Please try again.")
             return redirect(url_for('index'))
 
-        # Process payment if not in development environment
+        # Process payment in production mode
         payment_url = process_payment(user_uuid, balance_pack, discount)
         logging.info(f"Redirecting user {user_uuid} to payment URL.")
         return redirect(payment_url)
