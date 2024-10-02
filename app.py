@@ -1,5 +1,5 @@
-from flask import Flask, request, render_template, redirect, url_for, make_response, flash
 import os
+from flask import Flask, request, render_template, redirect, url_for, make_response, flash
 from utils.utils import (
     parse_purchase_packs,
     parse_coupons,
@@ -7,7 +7,7 @@ from utils.utils import (
     get_balance_type,
     validate_coupon,
     process_payment,
-    log_env_variables,
+    load_env_variables,
 )
 from dotenv import load_dotenv
 from werkzeug.exceptions import BadRequest, InternalServerError
@@ -18,24 +18,21 @@ load_dotenv()
 
 # Ensure logging configuration is done only once, and log environment variables first
 if os.getenv("WERKZEUG_RUN_MAIN") is None:
-    log_env_variables()
+    load_env_variables()  # Logs all environment variables except sensitive ones
 
 # Set up Flask app and secret key
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
+# Import and initialize the database
+import database
+if os.getenv("WERKZEUG_RUN_MAIN") is None:
+    database.init_db()  # Initialize the database properly
+
 # Parse PURCHASE_PACKS and COUPONS from environment variables
 PURCHASE_PACKS = parse_purchase_packs("PURCHASE_PACKS")
 COUPONS = parse_coupons("COUPONS")
 balance_type = get_balance_type()
-
-# Import database after logging environment variables
-if os.getenv("WERKZEUG_RUN_MAIN") is None:
-    import database  # Delayed import to ensure correct logging order
-    # Initialize the database
-    database.init_db()
-    logger.info("Starting Flask app on port 5001")
-
 
 @app.route("/")
 def index():
@@ -149,7 +146,6 @@ def buy_balance():
         logger.exception("Unexpected error in buy_balance route: {}", e)
         raise InternalServerError("An unexpected error occurred.")
 
-
 @app.route("/use_balance", methods=["POST"])
 def use_balance():
     try:
@@ -168,7 +164,6 @@ def use_balance():
     except Exception as e:
         logger.exception("Unexpected error in use_balance route: {}", e)
         raise InternalServerError("An unexpected error occurred.")
-
 
 @app.route("/access_existing_balance", methods=["POST"])
 def access_existing_balance():
@@ -196,7 +191,6 @@ def access_existing_balance():
         logger.exception("Unexpected error in access_existing_balance route: {}", e)
         raise InternalServerError("An unexpected error occurred.")
 
-
 @app.route("/clear_balance", methods=["POST"])
 def clear_balance():
     if os.getenv("FLASK_ENV") == "development":
@@ -216,7 +210,6 @@ def clear_balance():
     else:
         flash("This action is not allowed in production.")
     return redirect(url_for("index"))
-
 
 @app.route("/delete_user_record", methods=["POST"])
 def delete_user_record():
@@ -240,7 +233,6 @@ def delete_user_record():
         flash("This action is not allowed in production.")
     return redirect(url_for("index"))
 
-
 @app.route("/clear_all_balances", methods=["POST"])
 def clear_all_balances():
     if os.getenv("FLASK_ENV") == "development":
@@ -254,7 +246,6 @@ def clear_all_balances():
     else:
         flash("This action is not allowed in production.")
     return redirect(url_for("index"))
-
 
 @app.route("/delete_all_user_records", methods=["POST"])
 def delete_all_user_records():
@@ -273,12 +264,10 @@ def delete_all_user_records():
         flash("This action is not allowed in production.")
     return redirect(url_for("index"))
 
-
 @app.errorhandler(404)
 def not_found_error(error):
     logger.warning("404 error: {}", error)
     return render_template("404.html"), 404
-
 
 @app.errorhandler(500)
 def internal_error(error):

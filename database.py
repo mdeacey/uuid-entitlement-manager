@@ -9,18 +9,16 @@ from utils.logging import logger
 # Load environment variables
 load_dotenv()
 
-# Database file path
+# Database file path from environment
 DB_FILE = os.getenv('DATABASE_FILE', 'uuid_balance.db')
-
-# Log which database file is being used and environment information
-logger.info("Using database file: {}", DB_FILE)
-logger.info("Running in Flask environment: {}", os.getenv('FLASK_ENV'))
 
 def init_db():
     """
     Initialize the SQLite database.
     Creates the 'users' table if it does not exist.
     """
+    # Log which database file is being used and environment information
+    logger.info("Initializing database:'{}'...", DB_FILE)
     try:
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
@@ -32,15 +30,22 @@ def init_db():
                     last_awarded INTEGER
                 )
             ''')
-            logger.info("Database initialized successfully.")
     except sqlite3.Error as e:
-        logger.error("Database initialization error: {}", e)
+        logger.exception("Database initialization error: {}", e)
+
+def get_db_file():
+    """
+    Get the path to the database file being used.
+    """
+    return DB_FILE
 
 def hash_user_agent(user_agent):
     """
     Hashes the user agent using SHA256.
     """
-    return hashlib.sha256(user_agent.encode()).hexdigest()
+    hashed_agent = hashlib.sha256(user_agent.encode()).hexdigest()
+    logger.debug("Hashed user agent for logging.")
+    return hashed_agent
 
 def generate_uuid(user_agent, starting_balance=10):
     """
@@ -48,6 +53,7 @@ def generate_uuid(user_agent, starting_balance=10):
     """
     hashed_user_agent = hash_user_agent(user_agent)
     user_uuid = str(uuid.uuid4())
+    logger.info("Generating UUID for new user with initial balance '{}'...", starting_balance)
     add_user_record(user_uuid, hashed_user_agent, starting_balance)
     return user_uuid
 
@@ -65,9 +71,9 @@ def add_user_record(user_uuid, user_agent, starting_balance):
                 'INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)',
                 (user_uuid, user_agent, starting_balance, int(time.time()))
             )
-            logger.info("User record added: UUID={}, Initial balance={}.", user_uuid, starting_balance)
+            logger.info("User record added: UUID='{}', Initial balance='{}'.", user_uuid, starting_balance)
     except sqlite3.Error as e:
-        logger.error("Database error while adding user record for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while adding user record for UUID '{}': {}", user_uuid, e)
 
 def get_balance(user_uuid):
     """
@@ -82,13 +88,13 @@ def get_balance(user_uuid):
             c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
             if result:
-                logger.info("Retrieved balance for user {}: {}", user_uuid, result[0])
+                logger.info("Retrieved balance for user '{}': {}", user_uuid, result[0])
                 return result[0]
             else:
-                logger.warning("No record found for UUID {}. Returning balance as 0.", user_uuid)
+                logger.warning("No record found for UUID '{}'. Returning balance as 0.", user_uuid)
                 return 0
     except sqlite3.Error as e:
-        logger.error("Database error while retrieving balance for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while retrieving balance for UUID '{}': {}", user_uuid, e)
         return 0
 
 def update_balance(user_uuid, balance_change):
@@ -96,7 +102,7 @@ def update_balance(user_uuid, balance_change):
     Updates the balance of a user.
     """
     if not user_uuid or balance_change == 0:
-        logger.warning("Invalid parameters for updating balance: UUID={}, Balance change={}.", user_uuid, balance_change)
+        logger.warning("Invalid parameters for updating balance: UUID='{}', Balance change='{}'.", user_uuid, balance_change)
         return None
     try:
         with sqlite3.connect(DB_FILE) as conn:
@@ -104,20 +110,20 @@ def update_balance(user_uuid, balance_change):
             c.execute('BEGIN TRANSACTION')
             c.execute('UPDATE users SET balance = balance + ? WHERE uuid = ?', (balance_change, user_uuid))
             if c.rowcount == 0:
-                logger.error("No record found to update balance for UUID {}.", user_uuid)
+                logger.error("No record found to update balance for UUID '{}'. Rolling back.", user_uuid)
                 conn.rollback()
                 return None
             conn.commit()
             c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
             updated_balance = c.fetchone()
             if updated_balance:
-                logger.info("Balance updated for user {}. New balance: {}", user_uuid, updated_balance[0])
+                logger.info("Balance updated for user '{}'. New balance: {}", user_uuid, updated_balance[0])
                 return updated_balance[0]
             else:
-                logger.error("Failed to retrieve updated balance for UUID {} after update.", user_uuid)
+                logger.error("Failed to retrieve updated balance for UUID '{}' after update.", user_uuid)
                 return None
     except sqlite3.Error as e:
-        logger.error("Database error while updating balance for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while updating balance for UUID '{}': {}", user_uuid, e)
         return None
 
 def use_balance(user_uuid):
@@ -131,13 +137,13 @@ def use_balance(user_uuid):
     if balance > 0:
         updated_balance = update_balance(user_uuid, -1)
         if updated_balance is not None:
-            logger.info("Balance used for user {}. Remaining balance: {}", user_uuid, updated_balance)
+            logger.info("Balance used for user '{}'. Remaining balance: {}", user_uuid, updated_balance)
             return True
         else:
-            logger.error("Failed to verify updated balance for UUID {} after usage.", user_uuid)
+            logger.error("Failed to verify updated balance for UUID '{}' after usage.", user_uuid)
             return False
     else:
-        logger.warning("Insufficient balance for user {}. Balance is {}.", user_uuid, balance)
+        logger.warning("Insufficient balance for user '{}'. Balance is '{}'.", user_uuid, balance)
         return False
 
 def get_user_agent(user_uuid):
@@ -153,13 +159,13 @@ def get_user_agent(user_uuid):
             c.execute('SELECT user_agent FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
             if result:
-                logger.info("Retrieved user agent for user {}.", user_uuid)
+                logger.info("Retrieved user agent for user '{}'.", user_uuid)
                 return result[0]
             else:
-                logger.warning("No record found for UUID {} to retrieve user agent.", user_uuid)
+                logger.warning("No record found for UUID '{}' to retrieve user agent.", user_uuid)
                 return None
     except sqlite3.Error as e:
-        logger.error("Database error while retrieving user agent for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while retrieving user agent for UUID '{}': {}", user_uuid, e)
         return None
 
 def update_user_agent(user_uuid, user_agent):
@@ -175,11 +181,11 @@ def update_user_agent(user_uuid, user_agent):
             c = conn.cursor()
             c.execute('UPDATE users SET user_agent = ? WHERE uuid = ?', (hashed_user_agent, user_uuid))
             if c.rowcount > 0:
-                logger.info("User agent updated for user {}.", user_uuid)
+                logger.info("User agent updated for user '{}'.", user_uuid)
             else:
-                logger.warning("User agent update failed for user {}. No matching record found.", user_uuid)
+                logger.warning("User agent update failed for user '{}'. No matching record found.", user_uuid)
     except sqlite3.Error as e:
-        logger.error("Database error while updating user agent for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while updating user agent for UUID '{}': {}", user_uuid, e)
 
 def get_last_awarded(user_uuid):
     """
@@ -194,13 +200,13 @@ def get_last_awarded(user_uuid):
             c.execute('SELECT last_awarded FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
             if result:
-                logger.info("Retrieved last awarded timestamp for user {}.", user_uuid)
+                logger.info("Retrieved last awarded timestamp for user '{}'.", user_uuid)
                 return result[0]
             else:
-                logger.warning("No record found for UUID {} to retrieve last awarded timestamp.", user_uuid)
+                logger.warning("No record found for UUID '{}' to retrieve last awarded timestamp.", user_uuid)
                 return 0
     except sqlite3.Error as e:
-        logger.error("Database error while retrieving last awarded timestamp for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while retrieving last awarded timestamp for UUID '{}': {}", user_uuid, e)
         return 0
 
 def update_last_awarded(user_uuid, last_awarded):
@@ -215,11 +221,11 @@ def update_last_awarded(user_uuid, last_awarded):
             c = conn.cursor()
             c.execute('UPDATE users SET last_awarded = ? WHERE uuid = ?', (last_awarded, user_uuid))
             if c.rowcount > 0:
-                logger.info("Last awarded timestamp updated for user {}.", user_uuid)
+                logger.info("Last awarded timestamp updated for user '{}'.", user_uuid)
             else:
-                logger.warning("Last awarded timestamp update failed for UUID {}. No matching record found.", user_uuid)
+                logger.warning("Last awarded timestamp update failed for UUID '{}'. No matching record found.", user_uuid)
     except sqlite3.Error as e:
-        logger.error("Database error while updating last awarded timestamp for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while updating last awarded timestamp for UUID '{}': {}", user_uuid, e)
 
 def check_uuid_exists(user_uuid):
     """
@@ -234,13 +240,13 @@ def check_uuid_exists(user_uuid):
             c.execute('SELECT 1 FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
             if result:
-                logger.info("UUID {} exists in the database.", user_uuid)
+                logger.info("UUID '{}' exists in the database.", user_uuid)
                 return True
             else:
-                logger.warning("UUID {} does not exist in the database.", user_uuid)
+                logger.warning("UUID '{}' does not exist in the database.", user_uuid)
                 return False
     except sqlite3.Error as e:
-        logger.error("Database error while checking if UUID {} exists: {}", user_uuid, e)
+        logger.exception("Database error while checking if UUID '{}' exists: {}", user_uuid, e)
         return False
 
 def clear_all_balances():
@@ -253,7 +259,7 @@ def clear_all_balances():
             c.execute('UPDATE users SET balance = 0')
             logger.info("All user balances have been cleared to zero.")
     except sqlite3.Error as e:
-        logger.error("Database error while clearing all balances: {}", e)
+        logger.exception("Database error while clearing all balances: {}", e)
 
 def delete_user_record(user_uuid):
     """
@@ -267,11 +273,11 @@ def delete_user_record(user_uuid):
             c = conn.cursor()
             c.execute('DELETE FROM users WHERE uuid = ?', (user_uuid,))
             if c.rowcount > 0:
-                logger.info("User record for UUID {} has been successfully deleted.", user_uuid)
+                logger.info("User record for UUID '{}' has been successfully deleted.", user_uuid)
             else:
-                logger.warning("User record for UUID {} does not exist.", user_uuid)
+                logger.warning("User record for UUID '{}' does not exist.", user_uuid)
     except sqlite3.Error as e:
-        logger.error("Database error while deleting user record for UUID {}: {}", user_uuid, e)
+        logger.exception("Database error while deleting user record for UUID '{}': {}", user_uuid, e)
 
 def delete_all_user_records():
     """
@@ -283,4 +289,4 @@ def delete_all_user_records():
             c.execute('DELETE FROM users')
             logger.info("All user records have been successfully deleted from the database.")
     except sqlite3.Error as e:
-        logger.error("Database error while deleting all user records: {}", e)
+        logger.exception("Database error while deleting all user records: {}", e)
