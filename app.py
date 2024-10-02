@@ -1,15 +1,15 @@
 import os
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
 from utils.utils import (
+    load_env_variables,
     validate_currency_unit, 
-    validate_currency_decimals, 
+    validate_currency_decimals,
     validate_balance_type,
     parse_purchase_packs,
     parse_coupons,
     format_currency,
     validate_coupon,
     process_payment,
-    load_env_variables,
 )
 from dotenv import load_dotenv
 from werkzeug.exceptions import BadRequest, InternalServerError
@@ -36,8 +36,8 @@ currency_decimals = validate_currency_decimals()
 balance_type = validate_balance_type()
 
 # Parse PURCHASE_PACKS and COUPONS from environment variables
-PURCHASE_PACKS = parse_purchase_packs("PURCHASE_PACKS", currency_unit, balance_type)
-COUPONS = parse_coupons("COUPONS", currency_unit)
+purchase_packs = parse_purchase_packs("PURCHASE_PACKS", currency_unit, balance_type)
+coupons = parse_coupons("COUPONS", purchase_packs, currency_decimals)
 
 @app.route("/")
 def index():

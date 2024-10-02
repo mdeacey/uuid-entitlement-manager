@@ -49,12 +49,15 @@ def validate_currency_decimals():
         logger.error("Environment variable 'CURRENCY_DECIMALS' is not set.")
         raise EnvironmentError("Environment variable 'CURRENCY_DECIMALS' must be set.")
 
-    currency_decimals = os.getenv("CURRENCY_DECIMALS")
-    if not currency_decimals.isdigit() or int(currency_decimals) < 0:
-        logger.error("Invalid 'CURRENCY_DECIMALS': '{}' - It must be a non-negative integer.", currency_decimals)
-        raise EnvironmentError("Environment variable 'CURRENCY_DECIMALS' must be set and must be a non-negative integer.")
-    
-    return int(currency_decimals)
+    try:
+        currency_decimals = int(os.getenv("CURRENCY_DECIMALS"))
+        if currency_decimals < 0:
+            raise ValueError("Currency decimals must be a non-negative integer.")
+    except ValueError as e:
+        logger.error("Invalid 'CURRENCY_DECIMALS': '{}' - It must be a non-negative integer.", os.getenv("CURRENCY_DECIMALS"))
+        raise EnvironmentError("Environment variable 'CURRENCY_DECIMALS' must be a non-negative integer.")
+
+    return currency_decimals
 
 def validate_balance_type():
     """
@@ -72,44 +75,52 @@ def validate_balance_type():
     
     return balance_type
 
-
 def parse_purchase_packs(env_var, currency_unit, balance_type, separator=";", key_value_separator=":"):
     """
     Parses purchase packs from an environment variable into a dictionary.
-    Format: PACK_NAME:SIZE; another pack in the same format, and so on...
+    Format: PACK_NAME:SIZE:PRICE; another pack in the same format, and so on...
     """
     items = os.getenv(env_var, "")
     if items.startswith('"') and items.endswith('"'):
         items = items[1:-1]  # Remove surrounding quotes
-    
+
     result = {}
     if items:
         logger.info("Parsing purchase packs from environment variable '{}'...", env_var)
         for item in items.split(separator):
             parts = item.split(key_value_separator)
-            if len(parts) == 2:
+            if len(parts) == 3:
                 try:
-                    pack_name = parts[0].strip()
+                    pack_name_original = parts[0].strip()  # Preserve original casing
+                    pack_name = pack_name_original.lower()  # Normalize to lowercase for internal use
                     size = int(parts[1].strip())
+                    price = float(parts[2].strip())
+                    
                     if size <= 0:
-                        raise ValueError(f"Size for pack '{pack_name}' must be a positive integer.")
+                        raise ValueError(f"Size for pack '{pack_name_original}' must be a positive integer.")
+                    if price <= 0:
+                        raise ValueError(f"Price for pack '{pack_name_original}' must be a positive value.")
 
                     result[pack_name] = {
-                        "size": size
+                        "original_name": pack_name_original,  # Store the original name
+                        "size": size,
+                        "price": price,
+                        "currency": currency_unit
                     }
-                    logger.info("Purchase Pack Parsed - Pack Name: '{}', Size: {} {}", pack_name, size, balance_type)
+                    logger.info("Purchase Pack Parsed - Pack Name: '{}', Size: {} {}, Price: {}{}", 
+                                pack_name_original, size, balance_type, currency_unit, price)
                 except ValueError as e:
                     logger.error("Error parsing pack '{}': {}", item, e)
                     raise ValueError(f"Invalid format for purchase pack: '{item}'. Error: {e}")
             else:
-                logger.error("Invalid format for pack '{}'. Expected format: PACK_NAME:SIZE", item)
-                raise ValueError(f"Invalid format for purchase pack: '{item}'. Expected format: PACK_NAME:SIZE")
+                logger.error("Invalid format for pack '{}'. Expected format: PACK_NAME:SIZE:PRICE", item)
+                raise ValueError(f"Invalid format for purchase pack: '{item}'. Expected format: PACK_NAME:SIZE:PRICE")
     else:
         logger.warning("No purchase packs found in environment variable '{}'.", env_var)
 
     return result
 
-def parse_coupons(env_var, currency_unit, separator=";", key_value_separator=":"):
+def parse_coupons(env_var, purchase_packs, currency_decimals, separator=";", key_value_separator=":"):
     """
     Parses coupons from an environment variable into a dictionary.
     Format: COUPON_CODE:DISCOUNT:APPLICABLE_PACKS; another coupon in the same format, and so on...
@@ -130,17 +141,34 @@ def parse_coupons(env_var, currency_unit, separator=";", key_value_separator=":"
                     if discount < 0 or discount > 100:
                         raise ValueError(f"Discount for coupon '{coupon_code}' must be between 0 and 100.")
 
-                    # Use ast.literal_eval to parse the list of applicable packs
+                    # Split the applicable packs by comma, trim whitespace, and normalize to lowercase for matching
                     applicable_packs_str = parts[2].strip()
-                    applicable_packs = ast.literal_eval(applicable_packs_str)
-                    if not isinstance(applicable_packs, list):
-                        raise ValueError(f"Applicable packs for coupon '{coupon_code}' should be a list.")
+                    applicable_packs = [pack.strip().lower() for pack in applicable_packs_str.split(",")]
 
+                    # Calculate the new price for each applicable pack and log combined information
+                    for pack_name in applicable_packs:
+                        if pack_name in purchase_packs:
+                            pack_details = purchase_packs[pack_name]
+                            original_price = pack_details['price']
+                            discounted_price = round(original_price * (1 - discount / 100), currency_decimals)
+
+                            # Combined logging statement
+                            logger.info("Coupon Parsed - Code: '{}', Pack Name: '{}', Discount: {}%, Discounted Price: {}{}", 
+                                        coupon_code,
+                                        pack_details['original_name'], 
+                                        discount, 
+                                        pack_details['currency'], 
+                                        discounted_price)
+                        else:
+                            logger.warning("Pack '{}' specified in coupon '{}' is not found in purchase packs. Available packs: {}", 
+                                           pack_name, coupon_code, [details['original_name'] for details in purchase_packs.values()])
+                    
+                    # Store coupon information in result
                     result[coupon_code] = {
                         "discount": discount,
                         "applicable_packs": applicable_packs
                     }
-                    logger.info("Coupon Parsed - Code: '{}', Discount: {}%, Applicable Packs: {}", coupon_code, discount, applicable_packs)
+                    
                 except (ValueError, SyntaxError) as e:
                     logger.error("Error parsing coupon '{}': {}", item, e)
                     raise ValueError(f"Invalid format for coupon: '{item}'. Error: {e}")
