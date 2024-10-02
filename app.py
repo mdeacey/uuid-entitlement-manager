@@ -13,29 +13,24 @@ from utils.utils import (
 )
 from dotenv import load_dotenv
 from werkzeug.exceptions import BadRequest, InternalServerError
-from utils.logging import logger  # Import centralized Loguru logger
+from utils.logging import logger
 
-# Load environment variables
 load_dotenv()
 
-# Ensure logging configuration is done only once, and log environment variables first
 if os.getenv("WERKZEUG_RUN_MAIN") is None:
-    load_env_variables()  # Logs all environment variables except sensitive ones
+    load_env_variables()
 
-# Set up Flask app and secret key
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
-# Import and initialize the database
 import database
 if os.getenv("WERKZEUG_RUN_MAIN") is None:
-    database.init_db()  # Initialize the database properly
+    database.init_db()
 
 currency_unit = validate_currency_unit()
 currency_decimals = validate_currency_decimals()
 balance_type = validate_balance_type()
 
-# Parse PURCHASE_PACKS and COUPONS from environment variables
 purchase_packs = parse_purchase_packs("PURCHASE_PACKS", currency_unit, balance_type)
 coupons = parse_coupons("COUPONS", purchase_packs, currency_decimals)
 
@@ -59,8 +54,8 @@ def index():
                     user_uuid=user_uuid,
                     balance=10,
                     flask_env=os.getenv("FLASK_ENV"),
-                    purchase_packs=PURCHASE_PACKS,
-                    coupons=COUPONS,
+                    purchase_packs=purchase_packs,
+                    coupons=coupons,
                     balance_type=balance_type,
                     hashed_user_agent=hashed_user_agent,
                     format_currency=format_currency,
@@ -89,8 +84,8 @@ def index():
             user_uuid=user_uuid,
             balance=balance,
             flask_env=os.getenv("FLASK_ENV"),
-            purchase_packs=PURCHASE_PACKS,
-            coupons=COUPONS,
+            purchase_packs=purchase_packs,
+            coupons=coupons,
             balance_type=balance_type,
             hashed_user_agent=hashed_user_agent,
             format_currency=format_currency,
@@ -113,7 +108,7 @@ def buy_balance():
         if not user_uuid:
             raise BadRequest("User UUID is missing.")
 
-        if not balance_pack or balance_pack not in PURCHASE_PACKS:
+        if not balance_pack or balance_pack not in purchase_packs:
             raise BadRequest(f"Invalid or missing {balance_type} pack selected.")
 
         discount = 0
@@ -124,11 +119,9 @@ def buy_balance():
                 flash("Invalid coupon code for the selected pack. Please try again.")
                 return redirect(url_for("index"))
 
-        # Calculate final balance to add after discount
-        balance_to_add = PURCHASE_PACKS[balance_pack]["size"]
+        balance_to_add = purchase_packs[balance_pack]["size"]
         balance_to_add -= int(balance_to_add * (discount / 100))
 
-        # Update the balance in development mode
         if os.getenv("FLASK_ENV") == "development":
             updated_balance = database.update_balance(user_uuid, balance_to_add)
             if updated_balance is not None:
@@ -139,7 +132,6 @@ def buy_balance():
                 flash(f"Failed to update {balance_type}. Please try again.")
             return redirect(url_for("index"))
 
-        # Process payment in production mode
         payment_url = process_payment(user_uuid, balance_pack, discount)
         logger.info("Redirecting user {} to payment URL.", user_uuid)
         return redirect(payment_url)
@@ -280,6 +272,5 @@ def internal_error(error):
     return render_template("500.html"), 500
 
 if __name__ == "__main__":
-    # Run the app with debug mode based on the FLASK_ENV variable
     debug_mode = os.getenv("FLASK_ENV", "production").lower() == "development"
     app.run(host="0.0.0.0", port=5001, debug=debug_mode)

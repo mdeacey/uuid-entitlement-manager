@@ -24,7 +24,7 @@
             <select name="balance_pack" id="balance_pack" required>
                 {% if purchase_packs %}
                     {% for pack, details in purchase_packs.items() %}
-                    <option value="{{ pack }}">{{ pack }} - {{ details.size }} {{ balance_type }} (Applicable Coupons: {{ ", ".join(details.applicable_coupons) }})</option>
+                        <option value="{{ pack }}">{{ details.original_name }} - {{ details.size }} {{ balance_type }} (Price: {{ format_currency(details.price) }})</option>
                     {% endfor %}
                 {% else %}
                     <option disabled>No {{ balance_type }} packs available</option>
