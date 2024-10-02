@@ -60,14 +60,6 @@ def get_applicable_packs(applicable_packs_str):
     """Parses and returns the applicable packs from a string."""
     return [pack.strip().lower() for pack in applicable_packs_str.split(",")]
 
-def get_coupon_data(coupon_code, coupons):
-    """Retrieves coupon data for the given coupon code."""
-    return coupons.get(coupon_code)
-
-def is_coupon_applicable(coupon_code, balance_pack, applicable_packs):
-    """Checks if the coupon is applicable to the balance pack."""
-    return balance_pack in applicable_packs and coupon_code in applicable_packs[balance_pack]["applicable_coupons"]
-
 def log_coupon_validation_result(is_valid, coupon_code, discount, balance_pack):
     """Logs the validation result of the coupon."""
     if is_valid:
@@ -110,42 +102,27 @@ def validate_balance_type():
     error_msg = "Environment variable 'BALANCE_TYPE' must be set and be a valid string."
     return validate_env_variable('BALANCE_TYPE', error_msg, lambda x: isinstance(x, str))
 
-def parse_purchase_packs(env_var, currency_unit, balance_type, separator=";", key_value_separator=":"):
-    result = {}
+def parse_and_store_purchase_packs(env_var, currency_unit, balance_type, separator=";", key_value_separator=":"):
     items = parse_env_items(env_var, separator, key_value_separator)
     if items:
-        logger.info("Parsing purchase packs from environment variable '{}'...", env_var)
+        logger.info("Parsing and storing purchase packs from environment variable '{}'...", env_var)
         for parts in items:
             try:
                 pack_name_original, size_str, price_str = validate_pack_parts(parts)
                 pack_name = pack_name_original.lower()
                 size = int(validate_positive_number(size_str, "Size"))
                 price = float(validate_positive_number(price_str, "Price"))
-                result[pack_name] = {
-                    "original_name": pack_name_original,
-                    "size": size,
-                    "price": price,
-                    "currency": currency_unit
-                }
-                log_purchase_pack(pack_name_original, size, balance_type, currency_unit, price)
+                # Store in database
+                database.add_purchase_pack(pack_name, pack_name_original, size, price, currency_unit)
+                logger.info("Stored purchase pack '{}'", pack_name_original)
             except ValueError as e:
                 logger.error("Error parsing pack '{}': {}", ":".join(parts), e)
                 raise ValueError(f"Invalid format for purchase pack: '{':'.join(parts)}'. Error: {e}")
-    else:
-        logger.warning("No purchase packs found in environment variable '{}'.", env_var)
-    return result
 
-def parse_coupons(env_var, purchase_packs, currency_decimals, separator=";", key_value_separator=":"):
+def parse_and_store_coupons(env_var, purchase_packs, separator=";", key_value_separator=":"):
     items = parse_env_items(env_var, separator, key_value_separator)
-    try:
-        currency_decimals = int(currency_decimals)  # Convert currency_decimals to an integer
-    except ValueError:
-        logger.error("Invalid 'CURRENCY_DECIMALS': '{}' - It must be a non-negative integer.", currency_decimals)
-        raise EnvironmentError("Environment variable 'CURRENCY_DECIMALS' must be a non-negative integer.")
-    
-    result = {}
     if items:
-        logger.info("Parsing coupons from environment variable '{}'...", env_var)
+        logger.info("Parsing and storing coupons from environment variable '{}'...", env_var)
         for parts in items:
             if len(parts) == 3:
                 try:
@@ -154,29 +131,16 @@ def parse_coupons(env_var, purchase_packs, currency_decimals, separator=";", key
                     if discount < 0 or discount > 100:
                         raise ValueError(f"Discount for coupon '{coupon_code}' must be between 0 and 100.")
                     applicable_packs = get_applicable_packs(parts[2])
-                    for pack_name in applicable_packs:
-                        if pack_name in purchase_packs:
-                            pack_details = purchase_packs[pack_name]
-                            original_price = pack_details['price']
-                            discounted_price = round(original_price * (1 - discount / 100), currency_decimals)
-                            logger.info("Coupon Parsed - Code: '{}', Pack Name: '{}', Discount: {}%, Discounted Price: {}{}", 
-                                        coupon_code, pack_details['original_name'], discount, pack_details['currency'], discounted_price)
-                        else:
-                            logger.warning("Pack '{}' specified in coupon '{}' is not found in purchase packs. Available packs: {}", 
-                                           pack_name, coupon_code, [details['original_name'] for details in purchase_packs.values()])
-                    result[coupon_code] = {
-                        "discount": discount,
-                        "applicable_packs": applicable_packs
-                    }
-                except (ValueError, SyntaxError) as e:
+                    applicable_packs_str = ",".join(applicable_packs)
+                    # Store in database
+                    database.add_coupon(coupon_code, discount, applicable_packs_str)
+                    logger.info("Stored coupon '{}'", coupon_code)
+                except ValueError as e:
                     logger.error("Error parsing coupon '{}': {}", ":".join(parts), e)
                     raise ValueError(f"Invalid format for coupon: '{':'.join(parts)}'. Error: {e}")
             else:
                 logger.error("Invalid format for coupon '{}'. Expected format: COUPON_CODE:DISCOUNT:APPLICABLE_PACKS", ":".join(parts))
                 raise ValueError(f"Invalid format for coupon: '{':'.join(parts)}'. Expected format: COUPON_CODE:DISCOUNT:APPLICABLE_PACKS")
-    else:
-        logger.warning("No coupons found in environment variable '{}'.", env_var)
-    return result
 
 def format_currency(amount):
     try:
@@ -222,11 +186,10 @@ def get_balance(user_uuid):
 def validate_coupon(coupon_code, balance_pack):
     try:
         logger.info("Validating coupon '{}' for balance pack '{}'", coupon_code, balance_pack)
-        coupons = parse_coupons('COUPONS')
-        coupon_data = get_coupon_data(coupon_code, coupons)
+        coupons = database.get_coupons()
+        coupon_data = coupons.get(coupon_code)
         if coupon_data:
-            applicable_packs = parse_purchase_packs('PURCHASE_PACKS')
-            is_valid = is_coupon_applicable(coupon_code, balance_pack, applicable_packs)
+            is_valid = balance_pack in coupon_data["applicable_packs"]
             discount = coupon_data["discount"] if is_valid else 0
             log_coupon_validation_result(is_valid, coupon_code, discount, balance_pack)
             return is_valid, discount
@@ -240,7 +203,7 @@ def validate_coupon(coupon_code, balance_pack):
 def process_payment(user_uuid, balance_pack, discount):
     try:
         logger.info("Processing payment for user '{}', balance pack '{}', with discount '{}%'", user_uuid, balance_pack, discount)
-        purchase_packs = parse_purchase_packs('PURCHASE_PACKS')
+        purchase_packs = database.get_purchase_packs()
         if balance_pack not in purchase_packs:
             raise ValueError("Invalid balance pack selected.")
         balance_amount = purchase_packs[balance_pack]["size"]

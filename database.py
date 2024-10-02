@@ -15,7 +15,7 @@ DB_FILE = os.getenv('DATABASE_FILE', 'uuid_balance.db')
 def init_db():
     """
     Initialize the SQLite database.
-    Creates the 'users' table if it does not exist.
+    Creates the 'users', 'purchase_packs', and 'coupons' tables if they do not exist.
     """
     # Log which database file is being used and environment information
     logger.info("Initializing database:'{}'...", DB_FILE)
@@ -28,6 +28,24 @@ def init_db():
                     user_agent TEXT,
                     balance INTEGER,
                     last_awarded INTEGER
+                )
+            ''')
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS purchase_packs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pack_name TEXT UNIQUE,
+                    original_name TEXT,
+                    size INTEGER,
+                    price REAL,
+                    currency TEXT
+                )
+            ''')
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS coupons (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    coupon_code TEXT UNIQUE,
+                    discount INTEGER,
+                    applicable_packs TEXT
                 )
             ''')
     except sqlite3.Error as e:
@@ -290,3 +308,79 @@ def delete_all_user_records():
             logger.info("All user records have been successfully deleted from the database.")
     except sqlite3.Error as e:
         logger.exception("Database error while deleting all user records: {}", e)
+
+def add_purchase_pack(pack_name, original_name, size, price, currency):
+    """
+    Adds or updates a purchase pack in the database.
+    """
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT OR REPLACE INTO purchase_packs (pack_name, original_name, size, price, currency)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (pack_name, original_name, size, price, currency))
+            logger.info("Purchase pack '{}' added/updated successfully.", original_name)
+    except sqlite3.Error as e:
+        logger.exception("Database error while adding/updating purchase pack '{}': {}", original_name, e)
+
+def get_purchase_packs():
+    """
+    Retrieves all purchase packs from the database.
+    """
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('SELECT pack_name, original_name, size, price, currency FROM purchase_packs')
+            rows = c.fetchall()
+            packs = {}
+            for row in rows:
+                pack_name, original_name, size, price, currency = row
+                packs[pack_name] = {
+                    "original_name": original_name,
+                    "size": size,
+                    "price": price,
+                    "currency": currency
+                }
+            logger.info("Retrieved purchase packs from database.")
+            return packs
+    except sqlite3.Error as e:
+        logger.exception("Database error while retrieving purchase packs: {}", e)
+        return {}
+
+def add_coupon(coupon_code, discount, applicable_packs):
+    """
+    Adds or updates a coupon in the database.
+    """
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT OR REPLACE INTO coupons (coupon_code, discount, applicable_packs)
+                VALUES (?, ?, ?)
+            ''', (coupon_code, discount, applicable_packs))
+            logger.info("Coupon '{}' added/updated successfully.", coupon_code)
+    except sqlite3.Error as e:
+        logger.exception("Database error while adding/updating coupon '{}': {}", coupon_code, e)
+
+def get_coupons():
+    """
+    Retrieves all coupons from the database.
+    """
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('SELECT coupon_code, discount, applicable_packs FROM coupons')
+            rows = c.fetchall()
+            coupons = {}
+            for row in rows:
+                coupon_code, discount, applicable_packs = row
+                coupons[coupon_code] = {
+                    "discount": discount,
+                    "applicable_packs": applicable_packs.split(",")
+                }
+            logger.info("Retrieved coupons from database.")
+            return coupons
+    except sqlite3.Error as e:
+        logger.exception("Database error while retrieving coupons: {}", e)
+        return {}
