@@ -1,10 +1,12 @@
 import os
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
 from utils.utils import (
+    validate_currency_unit, 
+    validate_currency_decimals, 
+    validate_balance_type,
     parse_purchase_packs,
     parse_coupons,
     format_currency,
-    get_balance_type,
     validate_coupon,
     process_payment,
     load_env_variables,
@@ -29,10 +31,13 @@ import database
 if os.getenv("WERKZEUG_RUN_MAIN") is None:
     database.init_db()  # Initialize the database properly
 
+currency_unit = validate_currency_unit()
+currency_decimals = validate_currency_decimals()
+balance_type = validate_balance_type()
+
 # Parse PURCHASE_PACKS and COUPONS from environment variables
-PURCHASE_PACKS = parse_purchase_packs("PURCHASE_PACKS")
-COUPONS = parse_coupons("COUPONS")
-balance_type = get_balance_type()
+PURCHASE_PACKS = parse_purchase_packs("PURCHASE_PACKS", currency_unit, balance_type)
+COUPONS = parse_coupons("COUPONS", currency_unit)
 
 @app.route("/")
 def index():

@@ -24,61 +24,133 @@ def load_env_variables():
         else:
             logger.info("{}: {}", key, value)
 
-def parse_purchase_packs(env_var, separator=";", key_value_separator=":"):
+def validate_currency_unit():
+    """
+    Validates that the CURRENCY_UNIT environment variable is properly set.
+    """
+    logger.info("Validating 'CURRENCY_UNIT' from environment variable...")
+    if "CURRENCY_UNIT" not in os.environ:
+        logger.error("Environment variable 'CURRENCY_UNIT' is not set.")
+        raise EnvironmentError("Environment variable 'CURRENCY_UNIT' must be set.")
+
+    currency_unit = os.getenv("CURRENCY_UNIT")
+    if not currency_unit or len(currency_unit) > 3:
+        logger.error("Invalid 'CURRENCY_UNIT': '{}' - It must be set and be a short string (1-3 characters).", currency_unit)
+        raise EnvironmentError("Environment variable 'CURRENCY_UNIT' must be set and should be a short string (1-3 characters).")
+    
+    return currency_unit
+
+def validate_currency_decimals():
+    """
+    Validates that the CURRENCY_DECIMALS environment variable is properly set.
+    """
+    logger.info("Validating 'CURRENCY_DECIMALS' from environment variable...")
+    if "CURRENCY_DECIMALS" not in os.environ:
+        logger.error("Environment variable 'CURRENCY_DECIMALS' is not set.")
+        raise EnvironmentError("Environment variable 'CURRENCY_DECIMALS' must be set.")
+
+    currency_decimals = os.getenv("CURRENCY_DECIMALS")
+    if not currency_decimals.isdigit() or int(currency_decimals) < 0:
+        logger.error("Invalid 'CURRENCY_DECIMALS': '{}' - It must be a non-negative integer.", currency_decimals)
+        raise EnvironmentError("Environment variable 'CURRENCY_DECIMALS' must be set and must be a non-negative integer.")
+    
+    return int(currency_decimals)
+
+def validate_balance_type():
+    """
+    Validates that the BALANCE_TYPE environment variable is properly set.
+    """
+    logger.info("Validating 'BALANCE_TYPE' from environment variable...")
+    if "BALANCE_TYPE" not in os.environ:
+        logger.error("Environment variable 'BALANCE_TYPE' is not set.")
+        raise EnvironmentError("Environment variable 'BALANCE_TYPE' must be set.")
+
+    balance_type = os.getenv("BALANCE_TYPE")
+    if not balance_type or not isinstance(balance_type, str):
+        logger.error("Invalid 'BALANCE_TYPE': '{}' - It must be a valid string.", balance_type)
+        raise EnvironmentError("Environment variable 'BALANCE_TYPE' must be set and should be a valid string.")
+    
+    return balance_type
+
+
+def parse_purchase_packs(env_var, currency_unit, balance_type, separator=";", key_value_separator=":"):
     """
     Parses purchase packs from an environment variable into a dictionary.
-    Format: PACK_NAME:APPLICABLE_COUPONS:SIZE; another pack in the same format, and so on...
+    Format: PACK_NAME:SIZE; another pack in the same format, and so on...
     """
     items = os.getenv(env_var, "")
+    if items.startswith('"') and items.endswith('"'):
+        items = items[1:-1]  # Remove surrounding quotes
+    
     result = {}
     if items:
         logger.info("Parsing purchase packs from environment variable '{}'...", env_var)
         for item in items.split(separator):
             parts = item.split(key_value_separator)
-            if len(parts) == 3:
-                pack_name = parts[0].strip()
-                applicable_coupons = ast.literal_eval(parts[1].strip())
-                size = int(parts[2].strip())
-                result[pack_name] = {
-                    "applicable_coupons": applicable_coupons,
-                    "size": size
-                }
-                logger.debug("Parsed pack: '{}', Size: {}, Applicable Coupons: {}", pack_name, size, applicable_coupons)
+            if len(parts) == 2:
+                try:
+                    pack_name = parts[0].strip()
+                    size = int(parts[1].strip())
+                    if size <= 0:
+                        raise ValueError(f"Size for pack '{pack_name}' must be a positive integer.")
+
+                    result[pack_name] = {
+                        "size": size
+                    }
+                    logger.info("Purchase Pack Parsed - Pack Name: '{}', Size: {} {}", pack_name, size, balance_type)
+                except ValueError as e:
+                    logger.error("Error parsing pack '{}': {}", item, e)
+                    raise ValueError(f"Invalid format for purchase pack: '{item}'. Error: {e}")
+            else:
+                logger.error("Invalid format for pack '{}'. Expected format: PACK_NAME:SIZE", item)
+                raise ValueError(f"Invalid format for purchase pack: '{item}'. Expected format: PACK_NAME:SIZE")
     else:
-        logger.warning("No purchase packs found in environment variable: '{}'", env_var)
+        logger.warning("No purchase packs found in environment variable '{}'.", env_var)
 
     return result
 
-def parse_coupons(env_var, separator=";", key_value_separator=":"):
+def parse_coupons(env_var, currency_unit, separator=";", key_value_separator=":"):
     """
     Parses coupons from an environment variable into a dictionary.
-    Format: COUPON_CODE:DISCOUNT
+    Format: COUPON_CODE:DISCOUNT:APPLICABLE_PACKS; another coupon in the same format, and so on...
     """
     items = os.getenv(env_var, "")
+    if items.startswith('"') and items.endswith('"'):
+        items = items[1:-1]  # Remove surrounding quotes
+
     result = {}
     if items:
         logger.info("Parsing coupons from environment variable '{}'...", env_var)
         for item in items.split(separator):
             parts = item.split(key_value_separator)
-            if len(parts) == 2:
-                coupon_code = parts[0].strip()
-                discount = int(parts[1].strip())
-                result[coupon_code] = {
-                    "discount": discount
-                }
-                logger.debug("Parsed coupon: '{}', Discount: {}%", coupon_code, discount)
+            if len(parts) == 3:
+                try:
+                    coupon_code = parts[0].strip()
+                    discount = int(parts[1].strip())
+                    if discount < 0 or discount > 100:
+                        raise ValueError(f"Discount for coupon '{coupon_code}' must be between 0 and 100.")
+
+                    # Use ast.literal_eval to parse the list of applicable packs
+                    applicable_packs_str = parts[2].strip()
+                    applicable_packs = ast.literal_eval(applicable_packs_str)
+                    if not isinstance(applicable_packs, list):
+                        raise ValueError(f"Applicable packs for coupon '{coupon_code}' should be a list.")
+
+                    result[coupon_code] = {
+                        "discount": discount,
+                        "applicable_packs": applicable_packs
+                    }
+                    logger.info("Coupon Parsed - Code: '{}', Discount: {}%, Applicable Packs: {}", coupon_code, discount, applicable_packs)
+                except (ValueError, SyntaxError) as e:
+                    logger.error("Error parsing coupon '{}': {}", item, e)
+                    raise ValueError(f"Invalid format for coupon: '{item}'. Error: {e}")
+            else:
+                logger.error("Invalid format for coupon '{}'. Expected format: COUPON_CODE:DISCOUNT:APPLICABLE_PACKS", item)
+                raise ValueError(f"Invalid format for coupon: '{item}'. Expected format: COUPON_CODE:DISCOUNT:APPLICABLE_PACKS")
     else:
-        logger.warning("No coupons found in environment variable: '{}'", env_var)
+        logger.warning("No coupons found in environment variable '{}'.", env_var)
 
     return result
-
-def get_balance_type():
-    """
-    Retrieve the customizable term for balance (e.g., Credits, Tokens).
-    """
-    balance_type = os.getenv('BALANCE_TYPE', 'Credits')
-    logger.info("Retrieved balance type: '{}'", balance_type)
-    return balance_type
 
 def format_currency(amount):
     """
