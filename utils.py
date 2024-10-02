@@ -5,16 +5,10 @@ from dotenv import load_dotenv
 import database
 import uuid
 import time
+from logger import logger  # Import centralized logger
 
 # Load environment variables
 load_dotenv()
-
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('uuid_entitlement_manager.utils')
 
 def log_env_variables():
     """

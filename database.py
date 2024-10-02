@@ -1,23 +1,16 @@
 import os
 import sqlite3
-import logging
 import time
 import uuid
 import hashlib
 from dotenv import load_dotenv
+from logger import logger  # Import centralized logger
 
 # Load environment variables
 load_dotenv()
 
 # Database file path
 DB_FILE = os.getenv('DATABASE_FILE', 'uuid_balance.db')
-
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('uuid_entitlement_manager.database')
 
 # Log which database file is being used and environment information
 logger.info(f"Using database file: {DB_FILE}")

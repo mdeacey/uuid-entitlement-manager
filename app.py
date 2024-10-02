@@ -2,9 +2,9 @@ from flask import Flask, request, render_template, redirect, url_for, make_respo
 import os
 from utils import parse_purchase_packs, parse_coupons, format_currency, get_balance_type, validate_coupon, process_payment, log_env_variables
 from dotenv import load_dotenv
-import logging
 from werkzeug.exceptions import BadRequest, InternalServerError
 import database
+from logger import logger  # Import centralized logger
 
 # Load environment variables
 load_dotenv()
@@ -12,16 +12,6 @@ load_dotenv()
 # Set up Flask app and secret key
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
-
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger('uuid_entitlement_manager')
 
 # Log environment variables for reference (excluding sensitive information)
 log_env_variables()
