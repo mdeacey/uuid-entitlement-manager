@@ -9,15 +9,22 @@ import database
 # Load environment variables
 load_dotenv()
 
-# Log all environment variables, including parsed purchase packs and coupons
-log_env_variables()
-
 # Set up Flask app and secret key
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('uuid_entitlement_manager')
+
+# Log environment variables for reference (excluding sensitive information)
+log_env_variables()
 
 # Parse PURCHASE_PACKS and COUPONS from environment variables
 PURCHASE_PACKS = parse_purchase_packs('PURCHASE_PACKS')
@@ -28,22 +35,20 @@ balance_type = get_balance_type()
 def index():
     try:
         user_uuid = request.cookies.get('user_uuid')
-        balance = 10  # Default starting balance, for demonstration purposes
-
-        # Hash the user agent
         user_agent_string = request.headers.get('User-Agent')
+
         if not user_agent_string:
             raise BadRequest("User-Agent is missing.")
         
         hashed_user_agent = database.hash_user_agent(user_agent_string)
 
-        # If there's no user UUID, create a new user
+        # Create a new user if UUID is missing
         if not user_uuid:
             user_uuid = database.generate_uuid(user_agent=user_agent_string)
             response = make_response(render_template(
                 'index.html',
                 user_uuid=user_uuid,
-                balance=balance,
+                balance=10,
                 flask_env=os.getenv('FLASK_ENV'),
                 purchase_packs=PURCHASE_PACKS,
                 coupons=COUPONS,
@@ -53,21 +58,21 @@ def index():
             ))
             response.set_cookie('user_uuid', user_uuid)
 
-            # Log new user creation
-            logging.info(f"New user created: UUID={user_uuid}, User-Agent='{user_agent_string}', Initial balance=10 {balance_type}")
+            # Log user creation
+            logger.info(f"New user created: UUID={user_uuid}, Initial balance=10 {balance_type}")
             flash(f"Welcome! Your new user ID is {user_uuid}.")
             return response
 
         # Verify if user agent has changed
         stored_user_agent = database.get_user_agent(user_uuid)
         if stored_user_agent is None or stored_user_agent.strip() != hashed_user_agent.strip():
-            logging.info(f"User agent change detected for user {user_uuid}. Updating User-Agent to: '{hashed_user_agent}'")
+            logger.info(f"User agent change detected for user {user_uuid}. Updating user agent.")
             database.update_user_agent(user_uuid, user_agent_string.strip())
             flash("Browser or device change detected. User agent has been updated.")
 
-        # Retrieve current balance from the database
+        # Retrieve current balance
         balance = database.get_balance(user_uuid)
-        logging.info(f"User {user_uuid} accessed. Current balance: {balance} {balance_type}.")
+        logger.info(f"User {user_uuid} accessed. Current balance: {balance} {balance_type}.")
 
         return render_template(
             'index.html',
@@ -81,11 +86,11 @@ def index():
             format_currency=format_currency
         )
     except BadRequest as e:
-        logging.warning(f"Bad request: {e}")
+        logger.warning(f"Bad request: {e}")
         flash(str(e))
         return redirect(url_for('index'))
     except Exception as e:
-        logging.error(f"Error in index: {e}")
+        logger.error(f"Unexpected error in index route: {e}")
         raise InternalServerError("An unexpected error occurred.")
 
 @app.route('/buy_balance', methods=['POST'])
@@ -116,39 +121,42 @@ def buy_balance():
         if os.getenv('FLASK_ENV') == 'development':
             updated_balance = database.update_balance(user_uuid, balance_to_add)
             if updated_balance is not None:
-                logging.info(f"{balance_to_add} {balance_type} added to user {user_uuid}. New balance: {updated_balance}.")
+                logger.info(f"{balance_to_add} {balance_type} added to user {user_uuid}. New balance: {updated_balance}.")
                 flash(f"{balance_to_add} {balance_type} has been added successfully. Current {balance_type}: {updated_balance}.")
             else:
-                logging.error(f"Failed to update {balance_type} for user {user_uuid}.")
+                logger.error(f"Failed to update {balance_type} for user {user_uuid}.")
                 flash(f"Failed to update {balance_type}. Please try again.")
             return redirect(url_for('index'))
 
         # Process payment in production mode
         payment_url = process_payment(user_uuid, balance_pack, discount)
-        logging.info(f"Redirecting user {user_uuid} to payment URL.")
+        logger.info(f"Redirecting user {user_uuid} to payment URL.")
         return redirect(payment_url)
     except BadRequest as e:
-        logging.warning(f"Bad request: {e}")
+        logger.warning(f"Bad request in buy_balance: {e}")
         flash(str(e))
         return redirect(url_for('index'))
     except Exception as e:
-        logging.error(f"Error in buy_balance: {e}")
+        logger.error(f"Unexpected error in buy_balance route: {e}")
         raise InternalServerError("An unexpected error occurred.")
 
 @app.route('/use_balance', methods=['POST'])
 def use_balance():
     try:
         user_uuid = request.cookies.get('user_uuid')
+        if not user_uuid:
+            raise BadRequest("User UUID is missing.")
+
         success = database.use_balance(user_uuid)
         if success:
-            logging.info(f"{balance_type} used successfully for user {user_uuid}.")
+            logger.info(f"{balance_type} used successfully for user {user_uuid}.")
             flash(f'{balance_type} used successfully!')
         else:
-            logging.warning(f"Insufficient {balance_type} for user {user_uuid}.")
+            logger.warning(f"Insufficient {balance_type} for user {user_uuid}.")
             flash(f'Insufficient {balance_type}. Please buy more or wait for free {balance_type}.')
         return redirect(url_for('index'))
     except Exception as e:
-        logging.error(f"Error in use_balance: {e}")
+        logger.error(f"Unexpected error in use_balance route: {e}")
         raise InternalServerError("An unexpected error occurred.")
 
 @app.route('/access_existing_balance', methods=['POST'])
@@ -160,21 +168,21 @@ def access_existing_balance():
 
         if database.check_uuid_exists(user_uuid):
             balance = database.get_balance(user_uuid)
-            logging.info(f"Existing user {user_uuid} accessed. Current balance: {balance} {balance_type}.")
+            logger.info(f"Existing user {user_uuid} accessed. Current balance: {balance} {balance_type}.")
             response = make_response(redirect(url_for('index')))
             response.set_cookie('user_uuid', user_uuid)
             flash(f'Current {balance_type}: {balance}')
             return response
         else:
-            logging.warning(f"Invalid UUID {user_uuid} attempted to access.")
+            logger.warning(f"Invalid UUID {user_uuid} attempted to access.")
             flash('Invalid UUID. Please try again.')
             return redirect(url_for('index'))
     except BadRequest as e:
-        logging.warning(f"Bad request: {e}")
+        logger.warning(f"Bad request in access_existing_balance: {e}")
         flash(str(e))
         return redirect(url_for('index'))
     except Exception as e:
-        logging.error(f"Error in access_existing_balance: {e}")
+        logger.error(f"Unexpected error in access_existing_balance route: {e}")
         raise InternalServerError("An unexpected error occurred.")
 
 @app.route('/clear_balance', methods=['POST'])
@@ -184,17 +192,16 @@ def clear_balance():
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
                 database.update_balance(user_uuid, -database.get_balance(user_uuid))
-                logging.info(f"Balance for user {user_uuid} cleared to zero.")
+                logger.info(f"Balance for user {user_uuid} cleared to zero.")
                 flash(f"Your {balance_type} has been cleared.")
             else:
-                logging.warning("User UUID not found for balance clearing.")
+                logger.warning("User UUID not found for balance clearing.")
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
-            logging.error(f"Error clearing balance for user {user_uuid}: {e}")
+            logger.error(f"Error clearing balance for user {user_uuid}: {e}")
             flash(f"An error occurred while clearing your {balance_type}.")
     else:
         flash("This action is not allowed in production.")
-
     return redirect(url_for('index'))
 
 @app.route('/delete_user_record', methods=['POST'])
@@ -204,20 +211,19 @@ def delete_user_record():
             user_uuid = request.cookies.get('user_uuid')
             if user_uuid:
                 database.delete_user_record(user_uuid)
-                logging.info(f"User record for UUID {user_uuid} deleted successfully.")
+                logger.info(f"User record for UUID {user_uuid} deleted successfully.")
                 response = make_response(redirect(url_for('index')))
                 response.set_cookie('user_uuid', '', expires=0)
                 flash("Your user record has been deleted.")
                 return response
             else:
-                logging.warning("User UUID not found for record deletion.")
+                logger.warning("User UUID not found for record deletion.")
                 flash("User UUID not found. Please refresh the page and try again.")
         except Exception as e:
-            logging.error(f"Error deleting user record for user {user_uuid}: {e}")
+            logger.error(f"Error deleting user record for user {user_uuid}: {e}")
             flash("An error occurred while deleting your user record.")
     else:
         flash("This action is not allowed in production.")
-
     return redirect(url_for('index'))
 
 @app.route('/clear_all_balances', methods=['POST'])
@@ -225,14 +231,13 @@ def clear_all_balances():
     if os.getenv('FLASK_ENV') == 'development':
         try:
             database.clear_all_balances()
-            logging.info("All user balances cleared to zero.")
+            logger.info("All user balances cleared to zero.")
             flash(f"All user {balance_type}s have been cleared to zero.")
         except Exception as e:
-            logging.error(f"Error clearing all balances: {e}")
+            logger.error(f"Error clearing all balances: {e}")
             flash(f"An error occurred while clearing all {balance_type}s.")
     else:
         flash("This action is not allowed in production.")
-
     return redirect(url_for('index'))
 
 @app.route('/delete_all_user_records', methods=['POST'])
@@ -240,29 +245,26 @@ def delete_all_user_records():
     if os.getenv('FLASK_ENV') == 'development':
         try:
             database.delete_all_user_records()
-            logging.info("All user records deleted successfully.")
-
-            user_uuid = request.cookies.get('user_uuid')
+            logger.info("All user records deleted successfully.")
             response = make_response(redirect(url_for('index')))
-            if user_uuid:
-                response.set_cookie('user_uuid', '', expires=0)
-
+            response.set_cookie('user_uuid', '', expires=0)
             flash("All user records have been deleted.")
             return response
         except Exception as e:
-            logging.error(f"Error deleting all user records: {e}")
+            logger.error(f"Error deleting all user records: {e}")
             flash("An error occurred while deleting all user records.")
     else:
         flash("This action is not allowed in production.")
-
     return redirect(url_for('index'))
 
 @app.errorhandler(404)
 def not_found_error(error):
+    logger.warning(f"404 error: {error}")
     return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
+    logger.error(f"500 error: {error}")
     return render_template('500.html'), 500
 
 if __name__ == '__main__':
