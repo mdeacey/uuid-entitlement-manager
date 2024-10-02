@@ -3,6 +3,7 @@ import logging
 import ast
 from dotenv import load_dotenv
 import database
+import uuid
 import time
 
 # Load environment variables
@@ -10,6 +11,38 @@ load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def log_env_variables():
+    """
+    Logs all environment variables in a human-readable format, excluding sensitive information.
+    Parses specific values like PURCHASE_PACKS and COUPONS for detailed logging.
+    """
+    sensitive_keys = {'FLASK_SECRET_KEY', 'DATABASE_URL', 'PAYMENT_URL'}
+    log_str = "\nENVIRONMENT VARIABLES:\n"
+
+    # Log generic environment variables (excluding sensitive ones)
+    for key, value in os.environ.items():
+        if key in sensitive_keys:
+            log_str += f"{key}: [REDACTED]\n"
+        elif key not in {'PURCHASE_PACKS', 'COUPONS'}:  # We'll handle these separately
+            log_str += f"{key}: {value}\n"
+    
+    # Parse and log PURCHASE_PACKS in a structured format
+    purchase_packs = parse_purchase_packs('PURCHASE_PACKS')
+    log_str += "\nPARSED PURCHASE PACKS:\n"
+    for pack_name, details in purchase_packs.items():
+        log_str += f"{pack_name}:\n"
+        log_str += f"  Size (Balance): {details['size']}\n"
+        log_str += f"  Applicable Coupons: {', '.join(details['applicable_coupons'])}\n"
+
+    # Parse and log COUPONS in a structured format
+    coupons = parse_coupons('COUPONS')
+    log_str += "\nPARSED COUPONS:\n"
+    for coupon_code, details in coupons.items():
+        log_str += f"{coupon_code}:\n"
+        log_str += f"  Discount Percentage: {details['discount']}%\n"
+
+    logging.info(log_str)
 
 def parse_purchase_packs(env_var, separator=";", key_value_separator=":"):
     """
@@ -105,9 +138,11 @@ def validate_coupon(coupon_code, balance_pack):
     """
     Validates a coupon code and checks if it is applicable to the selected balance pack.
     """
-    coupon_data = COUPONS.get(coupon_code)
+    coupons = parse_coupons('COUPONS')
+    coupon_data = coupons.get(coupon_code)
     if coupon_data:
-        if balance_pack in coupon_data["applicable_packs"]:
+        applicable_packs = parse_purchase_packs('PURCHASE_PACKS')
+        if balance_pack in applicable_packs and coupon_code in applicable_packs[balance_pack]["applicable_coupons"]:
             discount = coupon_data["discount"]
             logging.info(f"Coupon code '{coupon_code}' is valid for a discount of {discount}% on pack '{balance_pack}'.")
             return True, discount
@@ -123,10 +158,11 @@ def process_payment(user_uuid, balance_pack, discount):
     Processes payment for the given balance pack, applying any discount.
     """
     try:
-        if balance_pack not in PURCHASE_PACKS:
+        purchase_packs = parse_purchase_packs('PURCHASE_PACKS')
+        if balance_pack not in purchase_packs:
             raise ValueError("Invalid balance pack selected.")
 
-        balance_amount = PURCHASE_PACKS[balance_pack]["size"]
+        balance_amount = purchase_packs[balance_pack]["size"]
 
         # Apply discount if any
         final_amount = max(0, balance_amount - (balance_amount * discount / 100))
@@ -154,4 +190,3 @@ def add_balance_manually(user_uuid, balance_to_add):
             logging.error(f"Failed to add balance to user {user_uuid}.")
     except Exception as e:
         logging.error(f"Error in add_balance_manually for user {user_uuid}: {e}")
-

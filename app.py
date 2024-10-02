@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
 import os
-from utils import parse_purchase_packs, parse_coupons, format_currency, get_balance_type, validate_coupon, process_payment
+from utils import parse_purchase_packs, parse_coupons, format_currency, get_balance_type, validate_coupon, process_payment, log_env_variables
 from dotenv import load_dotenv
 import logging
 from werkzeug.exceptions import BadRequest, InternalServerError
@@ -8,6 +8,9 @@ import database
 
 # Load environment variables
 load_dotenv()
+
+# Log all environment variables, including parsed purchase packs and coupons
+log_env_variables()
 
 # Set up Flask app and secret key
 app = Flask(__name__)
@@ -20,26 +23,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 PURCHASE_PACKS = parse_purchase_packs('PURCHASE_PACKS')
 COUPONS = parse_coupons('COUPONS')
 balance_type = get_balance_type()
-
-# Log the parsed purchase packs and coupons in a human-readable format
-def log_purchase_packs(packs, balance_type):
-    log_str = "\nPURCHASE PACKS:\n"
-    for pack_name, details in packs.items():
-        log_str += f"{pack_name}:\n"
-        log_str += f"  Size ({balance_type}): {details['size']}\n"
-        log_str += f"  Applicable Coupons: {', '.join(details['applicable_coupons'])}\n"
-    logging.info(log_str)
-
-def log_coupons(coupons):
-    log_str = "\nAVAILABLE COUPONS:\n"
-    for coupon_code, details in coupons.items():
-        log_str += f"{coupon_code}:\n"
-        log_str += f"  Discount Percentage: {details['discount']}%\n"
-        log_str += f"  Applicable Packs: {', '.join(details['applicable_packs'])}\n"
-    logging.info(log_str)
-
-log_purchase_packs(PURCHASE_PACKS, balance_type)
-log_coupons(COUPONS)
 
 @app.route('/')
 def index():
