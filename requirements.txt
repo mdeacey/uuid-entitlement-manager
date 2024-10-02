@@ -2,3 +2,4 @@ python-dotenv
 Flask
 requests
 user-agents
+hashlib

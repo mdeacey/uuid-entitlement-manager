@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import logging
 import os
 import database
-from utils import parse_env_list, process_payment, validate_coupon, get_balance_type, format_currency, hash_user_agent
+from utils import parse_env_list, process_payment, validate_coupon, get_balance_type, format_currency
 from werkzeug.exceptions import BadRequest, InternalServerError
 
 load_dotenv()
@@ -29,12 +29,14 @@ def index():
         if not user_agent_string:
             raise BadRequest("User-Agent is missing.")
 
+        # Hash the user agent
+        hashed_user_agent = database.hash_user_agent(user_agent_string)
+
         user_uuid = request.cookies.get('user_uuid')
 
         if not user_uuid:
             # Create a new user if UUID is not present
-            hashed_user_agent = hash_user_agent(user_agent_string)
-            user_uuid = database.generate_uuid(user_agent=hashed_user_agent)
+            user_uuid = database.generate_uuid(user_agent=user_agent_string)
             response = make_response(render_template(
                 'index.html',
                 user_uuid=user_uuid,
@@ -43,22 +45,21 @@ def index():
                 balance_packs=BALANCE_PACKS,
                 coupons=COUPONS,
                 balance_type=balance_type,
+                hashed_user_agent=hashed_user_agent,
                 format_currency=format_currency  # Pass the function to the template
             ))
             response.set_cookie('user_uuid', user_uuid)
 
             # Log new user creation in a single line
-            logging.info(f"New user created: UUID={user_uuid}, User-Agent hash='{hashed_user_agent}', Initial balance=10 {balance_type}")
+            logging.info(f"New user created: UUID={user_uuid}, User-Agent='{user_agent_string}', Initial balance=10 {balance_type}")
             flash(f"Welcome! Your new user ID is {user_uuid}.")
             return response
 
         # Verify if user agent has changed
-        stored_user_agent_hash = database.get_user_agent(user_uuid)
-        current_user_agent_hash = hash_user_agent(user_agent_string)
-
-        if stored_user_agent_hash is None or stored_user_agent_hash != current_user_agent_hash:
-            logging.info(f"User agent change detected for user {user_uuid}. Updating User-Agent hash.")
-            database.update_user_agent(user_uuid, current_user_agent_hash)
+        stored_user_agent = database.get_user_agent(user_uuid)
+        if stored_user_agent is None or stored_user_agent.strip() != hashed_user_agent.strip():
+            logging.info(f"User agent change detected for user {user_uuid}. Updating User-Agent to: '{hashed_user_agent}'")
+            database.update_user_agent(user_uuid, user_agent_string.strip())
             flash("Browser or device change detected. User agent has been updated.")
 
         balance = database.get_balance(user_uuid)
@@ -72,6 +73,7 @@ def index():
             balance_packs=BALANCE_PACKS,
             coupons=COUPONS,
             balance_type=balance_type,
+            hashed_user_agent=hashed_user_agent,
             format_currency=format_currency  # Pass the function to the template
         )
     except BadRequest as e:
