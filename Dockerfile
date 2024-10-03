@@ -9,9 +9,6 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Copy the .env file into the container
-COPY .env /app/.env
-
 # Install required packages, including SQLite
 RUN apt-get update && apt-get install -y sqlite3
 

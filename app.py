@@ -22,12 +22,12 @@ init_db()
 @app.errorhandler(404)
 def not_found_error_route(error):
     logger.warning("404 error: {}", error)
-    return render_template("shared/404.html"), 404
+    return render_template("shared/templates/404.html"), 404
 
 @app.errorhandler(500)
 def internal_error_route(error):
     logger.error("500 error: {}", error)
-    return render_template("shared/500.html"), 500
+    return render_template("/shared/templates/500.html"), 500
 
 if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_ENV", "production").lower() == "development"

@@ -48,3 +48,9 @@ def init_db():
             ''')
     except sqlite3.Error as e:
         logger.exception("Shared database initialization error: {}", e)
+
+def get_database_connection():
+    """
+    Provides a connection to the shared database.
+    """
+    return sqlite3.connect(DATABASE_FILE)

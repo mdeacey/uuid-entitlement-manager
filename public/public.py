@@ -1,10 +1,11 @@
 import os
-from flask import Blueprint, request, render_template, redirect, url_for, make_response, flash
-from werkzeug.exceptions import BadRequest, InternalServerError
-from shared.utils.shared_utils import format_currency
-from shared.utils.logging import logger
 import shared.shared_database as database
 from dotenv import load_dotenv
+from flask import Blueprint, request, render_template, redirect, url_for, make_response, flash
+from werkzeug.exceptions import BadRequest, InternalServerError
+from shared.utils.logging import logger
+from shared.utils.shared_utils import format_currency
+from public.public_database import hash_user_agent, get_user_agent, update_user_agent
 
 # Load global and public-specific environment variables
 load_dotenv()  # Loads .env
@@ -24,13 +25,13 @@ def index_route():
         if not user_agent_string:
             raise BadRequest("User-Agent is missing.")
 
-        hashed_user_agent = database.hash_user_agent(user_agent_string)
+        hashed_user_agent = hash_user_agent(user_agent_string)
 
         if not user_uuid:
             user_uuid = database.generate_uuid(user_agent=user_agent_string)
             balance = 10
         else:
-            stored_user_agent = database.get_user_agent(user_uuid)
+            stored_user_agent = get_user_agent(user_uuid)
             if stored_user_agent is None or stored_user_agent.strip() != hashed_user_agent.strip():
                 logger.warning("User agent change detected for user {}. Updating user agent.", user_uuid)
                 database.update_user_agent(user_uuid, user_agent_string.strip())

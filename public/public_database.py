@@ -1,54 +1,9 @@
-import os
 import sqlite3
 import time
 import uuid
 import hashlib
-from dotenv import load_dotenv
+from shared.shared_database import get_database_connection
 from shared.utils.logging import logger
-
-# Load environment variables
-load_dotenv(dotenv_path="./public/public.env")
-
-# Public-specific database file path from environment
-DB_FILE = os.getenv('PUBLIC_DATABASE_FILE', 'public_uuid_balance.db')
-
-def init_db():
-    """
-    Initialize the SQLite database for public users.
-    Creates the 'users', 'purchase_packs', and 'coupons' tables if they do not exist.
-    """
-    logger.info("Initializing public database: '{}'...", DB_FILE)
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            c = conn.cursor()
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    uuid TEXT PRIMARY KEY,
-                    user_agent TEXT,
-                    balance INTEGER,
-                    last_awarded INTEGER
-                )
-            ''')
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS purchase_packs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    pack_name TEXT UNIQUE,
-                    original_name TEXT,
-                    size INTEGER,
-                    price REAL,
-                    currency TEXT
-                )
-            ''')
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS coupons (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    coupon_code TEXT UNIQUE,
-                    discount INTEGER,
-                    applicable_packs TEXT
-                )
-            ''')
-    except sqlite3.Error as e:
-        logger.exception("Public database initialization error: {}", e)
 
 def hash_user_agent(user_agent):
     hashed_agent = hashlib.sha256(user_agent.encode()).hexdigest()
@@ -64,7 +19,7 @@ def generate_uuid(user_agent, starting_balance=10):
 
 def add_user_record(user_uuid, user_agent, starting_balance):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with get_database_connection() as conn:
             c = conn.cursor()
             c.execute(
                 'INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)',
@@ -76,7 +31,7 @@ def add_user_record(user_uuid, user_agent, starting_balance):
 
 def get_balance(user_uuid):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with get_database_connection() as conn:
             c = conn.cursor()
             c.execute('SELECT balance FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
