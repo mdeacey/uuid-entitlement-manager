@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Tools - {{ balance_type }} Management</title>
+</head>
+<body>
+    <h1>Admin Tools</h1>
+
+    <!-- All Users Management -->
+    <section>
+        <h2>All Users Tools</h2>
+        <form action="/clear_all_balances" method="POST">
+            <button type="submit">Clear All {{ balance_type }}s</button>
+        </form>
+        
+        <form action="/delete_all_user_records" method="POST">
+            <button type="submit">Delete All User Records</button>
+        </form>
+    </section>
+
+    <!-- Admin Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <section>
+        <h2>Messages</h2>
+        <ul>
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+    {% endwith %}
+</body>
+</html>

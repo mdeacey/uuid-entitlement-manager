@@ -16,9 +16,8 @@
         <p><strong>Current {{ balance_type }}:</strong> {{ balance }}</p>
     </section>
 
-    <!-- Buy Balance -->
+    <!-- Display Available Coupons -->
     <section>
-        <!-- Display Available Coupons -->
         <h3>Available Coupons</h3>
         {% if coupons %}
             {% for coupon, details in coupons.items() %}
@@ -28,7 +27,10 @@
         {% else %}
             <p>No coupons available at the moment.</p>
         {% endif %}
-        
+    </section>
+
+    <!-- Buy Credits -->
+    <section>
         <h2>Buy {{ balance_type }}</h2>
         <form action="/buy_balance" method="POST">
             <label for="balance_pack">Select {{ balance_type }} Pack:</label>
@@ -49,7 +51,7 @@
         </form>
     </section>
 
-    <!-- Use Balance -->
+    <!-- Use Credits -->
     <section>
         <h2>Use {{ balance_type }}</h2>
         <form action="/use_balance" method="POST">
@@ -57,7 +59,7 @@
         </form>
     </section>
 
-    <!-- Access Existing Balance -->
+    <!-- Access Existing Credits -->
     <section>
         <h2>Access Your {{ balance_type }}</h2>
         <form action="/access_existing_balance" method="POST">
@@ -66,13 +68,9 @@
         </form>
     </section>
 
-    <!-- Development Tools -->
-    {% if flask_env == 'development' %}
+    <!-- Single User Management -->
     <section>
-        <h2>Development Tools</h2>
-        
-        <!-- Single User Tools -->
-        <h3>Single User</h3>
+        <h2>Single User Tools</h2>
         <form action="/clear_balance" method="POST">
             <button type="submit">Clear {{ balance_type }}</button>
         </form>
@@ -80,18 +78,7 @@
         <form action="/delete_user_record" method="POST">
             <button type="submit">Delete User Record</button>
         </form>
-
-        <!-- All Users Tools -->
-        <h3>All Users</h3>
-        <form action="/clear_all_balances" method="POST">
-            <button type="submit">Clear All {{ balance_type }}s</button>
-        </form>
-        
-        <form action="/delete_all_user_records" method="POST">
-            <button type="submit">Delete All User Records</button>
-        </form>
     </section>
-    {% endif %}
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages() %}
