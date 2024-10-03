@@ -22,7 +22,8 @@
         <h3>Available Coupons</h3>
         {% if coupons %}
             {% for coupon, details in coupons.items() %}
-                <strong>{{ coupon }}:</strong> {{ details.discount }}% off on packs: {{ ", ".join(details.applicable_packs) }}<br>
+                <strong>{{ coupon }}:</strong> {{ details.discount }}% off on packs: 
+                {{ ", ".join(details.applicable_packs) }}<br>
             {% endfor %}
         {% else %}
             <p>No coupons available at the moment.</p>

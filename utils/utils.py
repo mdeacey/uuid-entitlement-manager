@@ -109,7 +109,7 @@ def parse_and_store_purchase_packs(env_var, currency_unit, balance_type, separat
         for parts in items:
             try:
                 pack_name_original, size_str, price_str = validate_pack_parts(parts)
-                pack_name = pack_name_original.lower()
+                pack_name = pack_name_original.lower()  # Keep lowercase for consistency, but retain original name.
                 size = int(validate_positive_number(size_str, "Size"))
                 price = float(validate_positive_number(price_str, "Price"))
                 # Store in database
@@ -130,10 +130,12 @@ def parse_and_store_coupons(env_var, purchase_packs, separator=";", key_value_se
                     discount = int(parts[1].strip())
                     if discount < 0 or discount > 100:
                         raise ValueError(f"Discount for coupon '{coupon_code}' must be between 0 and 100.")
+                    
                     applicable_packs = get_applicable_packs(parts[2])
-                    applicable_packs_str = ",".join(applicable_packs)
+                    applicable_packs_original = [purchase_packs[pack]["original_name"] for pack in applicable_packs]
+
                     # Store in database
-                    database.add_coupon(coupon_code, discount, applicable_packs_str)
+                    database.add_coupon(coupon_code, discount, ",".join(applicable_packs_original))
                     logger.info("Stored coupon '{}'", coupon_code)
                 except ValueError as e:
                     logger.error("Error parsing coupon '{}': {}", ":".join(parts), e)
