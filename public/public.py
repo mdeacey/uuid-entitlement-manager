@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from flask import Flask, Blueprint, request, render_template, redirect, url_for, make_response, flash
+from flask import Blueprint, request, render_template, redirect, url_for, make_response, flash
 from werkzeug.exceptions import BadRequest, InternalServerError
 from shared.utils.logging import logger
 from shared.utils.shared_utils import format_currency
@@ -23,8 +23,7 @@ load_dotenv()  # Loads .env
 load_dotenv(dotenv_path="./public/public.env")  # Loads public.env
 
 # Set up the Flask application and specify the template folder
-app = Flask(__name__, template_folder='public/templates')
-public_bp = Blueprint('public', __name__, url_prefix='/')
+public_bp = Blueprint('public', __name__, template_folder='public/templates', url_prefix='/')
 
 # Load balance type
 balance_type = os.getenv("BALANCE_TYPE", "Credits")

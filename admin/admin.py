@@ -7,7 +7,7 @@ import os
 load_dotenv()  # Loads .env
 load_dotenv(dotenv_path="./admin/admin.env")  # Loads admin.env
 
-admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+admin_bp = Blueprint('admin', __name__, template_folder='admin/templates', url_prefix='/admin')
 
 @admin_bp.route("/")
 def admin_tools_route():

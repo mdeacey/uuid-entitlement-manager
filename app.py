@@ -1,10 +1,10 @@
 import os
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, redirect, url_for
 from dotenv import load_dotenv
 from shared.utils.logging import logger
-from admin.admin import admin_bp
 from public.public import public_bp
-from shared.shared import shared_bp  # Import the shared blueprint
+from admin.admin import admin_bp
+from shared.shared import shared_bp
 from shared.shared_database import init_db
 
 # Initialize Flask app
@@ -14,10 +14,10 @@ load_dotenv()  # Load environment variables from .env file
 # Set the secret key for session management
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_default_secret_key")  # Ensure a strong secret key is set
 
-# Register the public, admin, and shared blueprints
-app.register_blueprint(public_bp, url_prefix="/")
-app.register_blueprint(admin_bp, url_prefix="/admin")
-app.register_blueprint(shared_bp)  # Register the shared blueprint
+# Register the blueprints
+app.register_blueprint(public_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(shared_bp)
 
 # Initialize the shared database
 init_db()
