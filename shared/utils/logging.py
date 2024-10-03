@@ -1,5 +1,6 @@
 from loguru import logger
 import os
+import sys
 
 # Set up Loguru logger for shared resources
 LOG_LEVEL = os.getenv("SHARED_LOG_LEVEL", "INFO")
@@ -18,7 +19,7 @@ logger.add(
 
 # Add a console handler with color formatting for better readability during development
 logger.add(
-    lambda msg: print(msg, end=''),
+    sys.stdout,
     level=LOG_LEVEL,
     colorize=True,
     format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
