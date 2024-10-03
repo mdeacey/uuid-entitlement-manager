@@ -1,5 +1,5 @@
 import sqlite3
-from shared.shared_database import get_database_connection
+from shared.shared_database import get_database_connection, DATABASE_FILE
 from shared.utils.logging import logger
 
 def clear_all_balances():

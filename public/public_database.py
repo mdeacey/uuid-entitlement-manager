@@ -2,7 +2,7 @@ import sqlite3
 import time
 import uuid
 import hashlib
-from shared.shared_database import get_database_connection
+from shared.shared_database import get_database_connection, DATABASE_FILE
 from shared.utils.logging import logger
 
 def hash_user_agent(user_agent):
@@ -47,7 +47,7 @@ def get_balance(user_uuid):
 
 def update_balance(user_uuid, balance_change):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('BEGIN TRANSACTION')
             c.execute('UPDATE users SET balance = balance + ? WHERE uuid = ?', (balance_change, user_uuid))
@@ -84,7 +84,7 @@ def use_balance(user_uuid):
 
 def get_user_agent(user_uuid):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('SELECT user_agent FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
@@ -101,7 +101,7 @@ def get_user_agent(user_uuid):
 def update_user_agent(user_uuid, user_agent):
     hashed_user_agent = hash_user_agent(user_agent)
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('UPDATE users SET user_agent = ? WHERE uuid = ?', (hashed_user_agent, user_uuid))
             if c.rowcount > 0:
@@ -113,7 +113,7 @@ def update_user_agent(user_uuid, user_agent):
 
 def check_uuid_exists(user_uuid):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('SELECT 1 FROM users WHERE uuid = ?', (user_uuid,))
             result = c.fetchone()
@@ -129,7 +129,7 @@ def check_uuid_exists(user_uuid):
 
 def add_purchase_pack(pack_name, original_name, size, price, currency):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('''
                 INSERT OR REPLACE INTO purchase_packs (pack_name, original_name, size, price, currency)
@@ -141,7 +141,7 @@ def add_purchase_pack(pack_name, original_name, size, price, currency):
 
 def get_purchase_packs():
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('SELECT pack_name, original_name, size, price, currency FROM purchase_packs')
             rows = c.fetchall()
@@ -162,7 +162,7 @@ def get_purchase_packs():
 
 def add_coupon(coupon_code, discount, applicable_packs):
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('''
                 INSERT OR REPLACE INTO coupons (coupon_code, discount, applicable_packs)
@@ -174,7 +174,7 @@ def add_coupon(coupon_code, discount, applicable_packs):
 
 def get_coupons():
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DATABASE_FILE) as conn:
             c = conn.cursor()
             c.execute('SELECT coupon_code, discount, applicable_packs FROM coupons')
             rows = c.fetchall()
