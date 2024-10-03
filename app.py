@@ -11,6 +11,9 @@ from shared.shared_database import init_db
 app = Flask(__name__)
 load_dotenv()  # Load environment variables from .env file
 
+# Set the secret key for session management
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_default_secret_key")  # Ensure a strong secret key is set
+
 # Register the public, admin, and shared blueprints
 app.register_blueprint(public_bp, url_prefix="/")
 app.register_blueprint(admin_bp, url_prefix="/admin")
