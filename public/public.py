@@ -22,8 +22,9 @@ from public.public_database import (
 load_dotenv()  # Loads .env
 load_dotenv(dotenv_path="./public/public.env")  # Loads public.env
 
-# Set up the Flask application and specify the template folder
-public_bp = Blueprint('public', __name__, template_folder='public/templates', url_prefix='/')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+public_bp = Blueprint('public', __name__, template_folder='templates')
+
 
 # Load balance type
 balance_type = os.getenv("BALANCE_TYPE", "Credits")
@@ -58,7 +59,7 @@ def index_route():
 
         response = make_response(
             render_template(
-                "public/public.html",  # Correct path for the template
+                "public.html",  # Correct path for the template
                 user_uuid=user_uuid,
                 balance=balance,
                 purchase_packs=purchase_packs,

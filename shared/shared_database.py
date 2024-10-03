@@ -22,6 +22,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     uuid TEXT PRIMARY KEY,
                     user_agent TEXT,
+                    user_agent_hash TEXT,
                     balance INTEGER,
                     last_awarded INTEGER
                 )

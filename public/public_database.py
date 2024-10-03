@@ -12,22 +12,35 @@ def hash_user_agent(user_agent):
 
 def generate_uuid(user_agent, starting_balance=10):
     hashed_user_agent = hash_user_agent(user_agent)
-    user_uuid = str(uuid.uuid4())
-    logger.info("Generating UUID for new user with initial balance '{}'...", starting_balance)
-    add_user_record(user_uuid, hashed_user_agent, starting_balance)
-    return user_uuid
+    for _ in range(5):  # Retry a maximum of 5 times to avoid an infinite loop
+        user_uuid = str(uuid.uuid4())
+        if not check_uuid_exists(user_uuid):
+            logger.info("Generating UUID for new user with initial balance '{}'...", starting_balance)
+            add_user_record(user_uuid, hashed_user_agent, starting_balance)
+            return user_uuid
+        time.sleep(0.1)  # Pause briefly before retrying
+    raise Exception("Failed to generate a unique UUID after 5 attempts.")
 
-def add_user_record(user_uuid, user_agent, starting_balance):
-    try:
-        with get_database_connection() as conn:
-            c = conn.cursor()
-            c.execute(
-                'INSERT INTO users (uuid, user_agent, balance, last_awarded) VALUES (?, ?, ?, ?)',
-                (user_uuid, user_agent, starting_balance, int(time.time()))
-            )
-            logger.info("User record added: UUID='{}', Initial balance='{}'.", user_uuid, starting_balance)
-    except sqlite3.Error as e:
-        logger.exception("Public database error while adding user record for UUID '{}': {}", user_uuid, e)
+def add_user_record(uuid, user_agent_hash, balance):
+    db_file = "uuid_balance.db"
+    with sqlite3.connect(db_file) as conn:
+        c = conn.cursor()
+        try:
+            # First, check if UUID already exists
+            c.execute("SELECT COUNT(*) FROM users WHERE uuid = ?", (uuid,))
+            if c.fetchone()[0] > 0:
+                # If the UUID already exists, skip inserting or take other action
+                raise ValueError(f"UUID '{uuid}' already exists in the database.")
+
+            # Insert the user with all columns including user_agent_hash
+            c.execute('''
+                INSERT INTO users (uuid, user_agent_hash, balance)
+                VALUES (?, ?, ?)
+            ''', (uuid, user_agent_hash, balance))
+            conn.commit()
+        except sqlite3.IntegrityError as e:
+            # Handle the unique constraint error here if needed
+            raise ValueError(f"Public database error while adding user record for UUID '{uuid}': {str(e)}")
 
 def get_balance(user_uuid):
     try:
