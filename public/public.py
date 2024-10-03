@@ -22,9 +22,7 @@ from public.public_database import (
 load_dotenv()  # Loads .env
 load_dotenv(dotenv_path="./public/public.env")  # Loads public.env
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
 public_bp = Blueprint('public', __name__, template_folder='templates')
-
 
 # Load balance type
 balance_type = os.getenv("BALANCE_TYPE", "Credits")
@@ -32,6 +30,7 @@ balance_type = os.getenv("BALANCE_TYPE", "Credits")
 @public_bp.route("/")
 def index_route():
     try:
+        logger.debug("Accessing index route")
         user_uuid = request.cookies.get("user_uuid")
         user_agent_string = request.headers.get("User-Agent")
 
@@ -44,6 +43,7 @@ def index_route():
             user_uuid = generate_uuid(user_agent=user_agent_string)
             balance = 10
             add_user_record(user_uuid, hashed_user_agent, balance)
+            logger.debug("Generated new UUID: {}", user_uuid)
         else:
             stored_user_agent = get_user_agent(user_uuid)
             if stored_user_agent is None or stored_user_agent.strip() != hashed_user_agent.strip():
@@ -76,12 +76,12 @@ def index_route():
             flash(f"Welcome! Your new user ID is {user_uuid}.")
 
         return response
-    
+
     except BadRequest as e:
         logger.warning("Bad request: {}", e)
         flash(str(e))
         return redirect(url_for("public.index_route"))
-    
+
     except Exception as e:
         logger.exception("Unexpected error in index route: {}", e)
         raise InternalServerError("An unexpected error occurred.")

@@ -3,7 +3,6 @@ from flask import Flask, redirect, url_for
 from dotenv import load_dotenv
 from shared.utils.logging import logger
 from public.public import public_bp
-from admin.admin import admin_bp
 from shared.shared import shared_bp
 from shared.shared_database import init_db
 
@@ -15,8 +14,7 @@ load_dotenv()  # Load environment variables from .env file
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_default_secret_key")  # Ensure a strong secret key is set
 
 # Register the blueprints
-app.register_blueprint(public_bp)
-app.register_blueprint(admin_bp)
+app.register_blueprint(public_bp, url_prefix='/')  # Set a prefix if required
 app.register_blueprint(shared_bp)
 
 # Initialize the shared database
