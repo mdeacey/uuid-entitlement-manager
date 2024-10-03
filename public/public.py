@@ -2,13 +2,17 @@ import os
 from flask import Blueprint, request, render_template, redirect, url_for, make_response, flash
 from werkzeug.exceptions import BadRequest, InternalServerError
 from public.utils.public_utils import format_currency
-from shared.logging import logger
-from shared.utils import validate_env_variable, format_currency
+from public.utils.logging import logger
 import public.database as database
+from dotenv import load_dotenv
+
+# Load global and public-specific environment variables
+load_dotenv()  # Loads .env
+load_dotenv(dotenv_path="./public/public.env")  # Loads public.env
 
 public_bp = Blueprint('public', __name__, url_prefix='/')
 
-# Load environment variables and validate them as necessary
+# Load balance type
 balance_type = os.getenv("BALANCE_TYPE", "Credits")
 
 @public_bp.route("/")

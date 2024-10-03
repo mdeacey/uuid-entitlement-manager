@@ -1,11 +1,14 @@
 from flask import Blueprint, render_template, redirect, url_for, flash
-from shared.logging import logger
-from shared.utils import validate_env_variable, format_currency
+from admin.utils.logging import logger
 import admin.database as database
+from dotenv import load_dotenv
 import os
 
-admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+# Load global and admin-specific environment variables
+load_dotenv()  # Loads .env
+load_dotenv(dotenv_path="./admin/admin.env")  # Loads admin.env
 
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @admin_bp.route("/")
 def admin_tools_route():
     return render_template("admin.html", balance_type=os.getenv("BALANCE_TYPE", "Credits"))
