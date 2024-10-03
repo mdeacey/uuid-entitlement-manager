@@ -1,8 +1,9 @@
 import os
 from dotenv import load_dotenv
-from public.utils.logging import logger
+from shared.utils.logging import logger
 
-load_dotenv()
+# Load the public-specific environment variables
+load_dotenv(dotenv_path="./public/public.env")
 
 # Example public-specific utility functions
 def format_currency(amount):

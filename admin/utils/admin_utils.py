@@ -1,8 +1,9 @@
 import os
 from dotenv import load_dotenv
-from admin.utils.logging import logger
+from shared.utils.logging import logger
 
-load_dotenv()
+# Load the admin-specific environment variables
+load_dotenv(dotenv_path="./admin/admin.env")
 
 # Example admin-specific utility functions
 def validate_admin_access():

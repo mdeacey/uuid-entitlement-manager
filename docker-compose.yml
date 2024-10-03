@@ -6,7 +6,8 @@ services:
     environment:
       - FLASK_ENV=development
       - FLASK_SECRET_KEY=your-secret-key
-      - DATABASE_FILE=/data/uuid_balance.db
+      - ADMIN_DATABASE_FILE=/data/admin_uuid_balance.db
+      - PUBLIC_DATABASE_FILE=/data/public_uuid_balance.db
     volumes:
       - sqlite_data:/data
     env_file:

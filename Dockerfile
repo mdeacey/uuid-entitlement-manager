@@ -15,9 +15,6 @@ COPY .env /app/.env
 # Install required packages, including SQLite
 RUN apt-get update && apt-get install -y sqlite3
 
-# Create /data directory for the database and set permissions
-RUN mkdir -p /data && chmod 777 /data
-
 # Install dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 

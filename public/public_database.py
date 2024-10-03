@@ -4,10 +4,10 @@ import time
 import uuid
 import hashlib
 from dotenv import load_dotenv
-from public.utils.logging import logger
+from shared.utils.logging import logger
 
 # Load environment variables
-load_dotenv()
+load_dotenv(dotenv_path="./public/public.env")
 
 # Public-specific database file path from environment
 DB_FILE = os.getenv('PUBLIC_DATABASE_FILE', 'public_uuid_balance.db')

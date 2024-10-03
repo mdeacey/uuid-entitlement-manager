@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash
-from admin.utils.logging import logger
-import admin.database as database
+from shared.utils.logging import logger
+import admin.admin_database as database
 from dotenv import load_dotenv
 import os
 
@@ -9,9 +9,10 @@ load_dotenv()  # Loads .env
 load_dotenv(dotenv_path="./admin/admin.env")  # Loads admin.env
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+
 @admin_bp.route("/")
 def admin_tools_route():
-    return render_template("admin.html", balance_type=os.getenv("BALANCE_TYPE", "Credits"))
+    return render_template("admin/admin.html", balance_type=os.getenv("BALANCE_TYPE", "Credits"))
 
 @admin_bp.route("/clear_all_balances", methods=["POST"])
 def clear_all_balances_route():

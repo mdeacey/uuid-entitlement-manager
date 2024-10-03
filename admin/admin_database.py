@@ -1,10 +1,10 @@
 import os
 import sqlite3
 from dotenv import load_dotenv
-from admin.utils.logging import logger
+from shared.utils.logging import logger
 
 # Load environment variables
-load_dotenv()
+load_dotenv(dotenv_path="./admin/admin.env")
 
 # Admin-specific database file path from environment
 DB_FILE = os.getenv('ADMIN_DATABASE_FILE', 'admin_uuid_balance.db')

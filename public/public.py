@@ -2,8 +2,8 @@ import os
 from flask import Blueprint, request, render_template, redirect, url_for, make_response, flash
 from werkzeug.exceptions import BadRequest, InternalServerError
 from public.utils.public_utils import format_currency
-from public.utils.logging import logger
-import public.database as database
+from shared.utils.logging import logger
+import public.public_database as database
 from dotenv import load_dotenv
 
 # Load global and public-specific environment variables
@@ -44,7 +44,7 @@ def index_route():
 
         response = make_response(
             render_template(
-                "index.html",
+                "public/public.html",
                 user_uuid=user_uuid,
                 balance=balance,
                 purchase_packs=purchase_packs,

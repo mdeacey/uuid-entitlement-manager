@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from shared.logging import logger
+from shared.utils.logging import logger
 
 load_dotenv()
 

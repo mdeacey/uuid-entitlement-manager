@@ -1,16 +1,14 @@
 import os
 from flask import Flask, render_template
 from dotenv import load_dotenv
-from utils.logging import logger
-from admin import admin_bp
-from public import public_bp
+from shared.utils.logging import logger
+from admin.admin import admin_bp
+from public.public import public_bp
 
 # Initialize Flask app
 app = Flask(__name__)
+load_dotenv()  # Load environment variables from .env file
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
-
-# Load environment variables
-load_dotenv()
 
 # Register the public and admin blueprints
 app.register_blueprint(public_bp, url_prefix="/")
@@ -20,12 +18,12 @@ app.register_blueprint(admin_bp, url_prefix="/admin")
 @app.errorhandler(404)
 def not_found_error_route(error):
     logger.warning("404 error: {}", error)
-    return render_template("404.html"), 404
+    return render_template("shared/404.html"), 404
 
 @app.errorhandler(500)
 def internal_error_route(error):
     logger.error("500 error: {}", error)
-    return render_template("500.html"), 500
+    return render_template("shared/500.html"), 500
 
 if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_ENV", "production").lower() == "development"
