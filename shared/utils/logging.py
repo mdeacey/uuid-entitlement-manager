@@ -1,9 +1,9 @@
 from loguru import logger
 import os
 
-# Set up Loguru logger
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-LOG_FILE = "logs/app_{time}.log"
+# Set up Loguru logger for shared resources
+LOG_LEVEL = os.getenv("SHARED_LOG_LEVEL", "INFO")
+LOG_FILE = "logs/shared_{time}.log"
 
 # Remove default Loguru handlers to avoid duplicate logs
 logger.remove()

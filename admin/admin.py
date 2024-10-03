@@ -1,19 +1,25 @@
-from flask import Blueprint, redirect, url_for, flash
-from utils.logging import logger
-import database
+from flask import Blueprint, render_template, redirect, url_for, flash
+from shared.logging import logger
+from shared.utils import validate_env_variable, format_currency
+import admin.database as database
+import os
 
-admin_bp = Blueprint('admin', __name__)
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+
+@admin_bp.route("/")
+def admin_tools_route():
+    return render_template("admin.html", balance_type=os.getenv("BALANCE_TYPE", "Credits"))
 
 @admin_bp.route("/clear_all_balances", methods=["POST"])
 def clear_all_balances_route():
     try:
         database.clear_all_balances()
         logger.info("All user balances cleared to zero.")
-        flash(f"All user balances have been cleared to zero.")
+        flash("All user balances have been cleared to zero.")
     except Exception as e:
         logger.exception("Error clearing all balances: {}", e)
         flash("An error occurred while clearing all balances.")
-    return redirect(url_for("admin_tools_route"))
+    return redirect(url_for("admin.admin_tools_route"))
 
 @admin_bp.route("/delete_all_user_records", methods=["POST"])
 def delete_all_user_records_route():
@@ -24,9 +30,4 @@ def delete_all_user_records_route():
     except Exception as e:
         logger.exception("Error deleting all user records: {}", e)
         flash("An error occurred while deleting all user records.")
-    return redirect(url_for("admin_tools_route"))
-
-# Admin tools page
-@admin_bp.route("/")
-def admin_tools_route():
-    return render_template("admin.html", balance_type=os.getenv("BALANCE_TYPE", "Credits"))
+    return redirect(url_for("admin.admin_tools_route"))
