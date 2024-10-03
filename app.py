@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from shared.utils.logging import logger
 from admin.admin import admin_bp
 from public.public import public_bp
+from shared.shared_database import init_db
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -13,6 +14,9 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 # Register the public and admin blueprints
 app.register_blueprint(public_bp, url_prefix="/")
 app.register_blueprint(admin_bp, url_prefix="/admin")
+
+# Initialize the shared database
+init_db()
 
 # Error handlers
 @app.errorhandler(404)
