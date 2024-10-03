@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y sqlite3
 # Install dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Initialize database
+RUN python -c "from shared.shared_database import init_db; init_db()"
+
 # Expose port 5001 for the Flask web server
 EXPOSE 5001
 

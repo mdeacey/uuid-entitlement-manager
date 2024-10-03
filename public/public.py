@@ -1,9 +1,9 @@
 import os
 from flask import Blueprint, request, render_template, redirect, url_for, make_response, flash
 from werkzeug.exceptions import BadRequest, InternalServerError
-from public.utils.public_utils import format_currency
+from shared.utils.shared_utils import format_currency
 from shared.utils.logging import logger
-import public.public_database as database
+import shared.shared_database as database
 from dotenv import load_dotenv
 
 # Load global and public-specific environment variables
